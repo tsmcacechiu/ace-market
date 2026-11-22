@@ -1,0 +1,299 @@
+:root {
+  --page: #f9f9f7;
+  --surface: #fcfcfb;
+  --ink: #0b0b0b;
+  --ink-2: #52514e;
+  --muted: #898781;
+  --grid: #e1e0d9;
+  --axis: #c3c2b7;
+  --border: rgba(11, 11, 11, 0.1);
+  --series-1: #2a78d6;
+  --up: #006300;
+  --down: #c02f2e;
+  --critical: #d03b3b;
+
+  /* Diverging blue (cheap) ↔ gray ↔ red (expensive) */
+  --lv-0-bg: #2a78d6;
+  --lv-0-fg: #ffffff;
+  --lv-1-bg: #b9d5f6;
+  --lv-1-fg: #0b0b0b;
+  --lv-2-bg: #f0efec;
+  --lv-2-fg: #0b0b0b;
+  --lv-3-bg: #f5c0bf;
+  --lv-3-fg: #0b0b0b;
+  --lv-4-bg: #e34948;
+  --lv-4-fg: #ffffff;
+
+  color-scheme: light dark;
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang TC", "Noto Sans TC", "Segoe UI", sans-serif;
+  color: var(--ink);
+  background: var(--page);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --page: #0d0d0d;
+    --surface: #1a1a19;
+    --ink: #f0efec;
+    --ink-2: #c3c2b7;
+    --muted: #898781;
+    --grid: #2c2c2a;
+    --axis: #383835;
+    --border: rgba(255, 255, 255, 0.1);
+    --series-1: #3987e5;
+    --up: #0ca30c;
+    --down: #e66767;
+
+    --lv-0-bg: #3987e5;
+    --lv-0-fg: #ffffff;
+    --lv-1-bg: #1f4a7d;
+    --lv-1-fg: #f0efec;
+    --lv-2-bg: #383835;
+    --lv-2-fg: #f0efec;
+    --lv-3-bg: #7d2a2a;
+    --lv-3-fg: #f0efec;
+    --lv-4-bg: #e66767;
+    --lv-4-fg: #0b0b0b;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+}
+a {
+  color: inherit;
+}
+
+.page {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 24px 20px 64px;
+}
+.header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+.header h1 {
+  margin: 0;
+  font-size: 22px;
+}
+.muted {
+  color: var(--muted);
+}
+.secondary {
+  color: var(--ink-2);
+}
+.small {
+  font-size: 13px;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px 18px;
+}
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.index-name {
+  font-size: 14px;
+  color: var(--ink-2);
+}
+.index-price {
+  font-size: 26px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  margin: 4px 0 2px;
+}
+.chg-up {
+  color: var(--up);
+}
+.chg-down {
+  color: var(--down);
+}
+
+/* Temperature meter: track + fill, value as text beside it. */
+.temp {
+  margin-top: 14px;
+}
+.temp-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 6px;
+}
+.temp-value {
+  font-size: 20px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.meter {
+  position: relative;
+  height: 8px;
+  border-radius: 4px;
+  background: linear-gradient(to right, var(--lv-0-bg), var(--lv-2-bg) 50%, var(--lv-4-bg));
+}
+.meter-marker {
+  position: absolute;
+  top: -4px;
+  width: 4px;
+  height: 16px;
+  margin-left: -2px;
+  border-radius: 2px;
+  background: var(--ink);
+  box-shadow: 0 0 0 2px var(--surface);
+}
+.meter-scale {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 4px;
+}
+
+.badge {
+  display: inline-block;
+  min-width: 74px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.lv-0 { background: var(--lv-0-bg); color: var(--lv-0-fg); }
+.lv-1 { background: var(--lv-1-bg); color: var(--lv-1-fg); }
+.lv-2 { background: var(--lv-2-bg); color: var(--lv-2-fg); }
+.lv-3 { background: var(--lv-3-bg); color: var(--lv-3-fg); }
+.lv-4 { background: var(--lv-4-bg); color: var(--lv-4-fg); }
+.badge-pending {
+  border: 1px dashed var(--axis);
+  color: var(--muted);
+}
+
+table.metrics {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+table.metrics th,
+table.metrics td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--grid);
+  text-align: left;
+  vertical-align: middle;
+}
+table.metrics thead th {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink-2);
+}
+table.metrics td.cell a {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  border-radius: 6px;
+  padding: 4px 6px;
+  margin: -4px -6px;
+}
+table.metrics td.cell a:hover,
+table.metrics td.cell a:focus-visible {
+  background: var(--grid);
+}
+.metric-value {
+  min-width: 64px;
+  font-weight: 500;
+}
+.kind-tag {
+  font-size: 11px;
+  color: var(--muted);
+  margin-left: 6px;
+}
+
+.legend {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-top: 14px;
+}
+
+.toolbar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin: 12px 0;
+}
+.seg {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.seg button {
+  border: 0;
+  background: var(--surface);
+  color: var(--ink-2);
+  padding: 6px 12px;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.seg button + button {
+  border-left: 1px solid var(--border);
+}
+.seg button[aria-pressed="true"] {
+  background: var(--ink);
+  color: var(--surface);
+}
+.toggle {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  font-size: 13px;
+  color: var(--ink-2);
+}
+
+.stat-row {
+  display: flex;
+  gap: 28px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+.stat-label {
+  font-size: 12px;
+  color: var(--ink-2);
+}
+.stat-value {
+  font-size: 24px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.error {
+  border-color: var(--critical);
+}
+details summary {
+  cursor: pointer;
+  color: var(--ink-2);
+  font-size: 13px;
+}
+pre.job {
+  white-space: pre-wrap;
+  font-size: 12px;
+  color: var(--ink-2);
+}
