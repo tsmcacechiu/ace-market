@@ -7,6 +7,7 @@ machine was asleep or the server was down at the scheduled time.
 
 import asyncio
 import logging
+from collections.abc import Callable
 from datetime import datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
@@ -45,24 +46,27 @@ def _missed_today(now: datetime, slot: time) -> bool:
     return last.astimezone(now.tzinfo) < last_slot(now, slot)
 
 
-async def _run_job() -> None:
+async def _run_job(on_done: Callable[[], None] | None) -> None:
     try:
         job = await asyncio.to_thread(daily.run_exclusive)
         if job is None:
             log.info("scheduled run skipped: a job is already running")
-        else:
-            log.info("scheduled job #%s finished: %s", job.id, job.status)
+            return
+        log.info("scheduled job #%s finished: %s", job.id, job.status)
+        if on_done:
+            await asyncio.to_thread(on_done)
     except Exception:
         log.exception("scheduled job crashed")
 
 
-async def run_forever() -> None:
+async def run_forever(on_job_done: Callable[[], None] | None = None) -> None:
+    """Loop forever; `on_job_done` runs (in a thread) after each completed job."""
     tz, slot = ZoneInfo(SCHEDULE_TZ), _slot_time()
     log.info("daily job scheduled at %s %s", SCHEDULE_TIME, SCHEDULE_TZ)
 
     if await asyncio.to_thread(_missed_today, datetime.now(tz), slot):
         log.info("no job since today's slot; catching up now")
-        await _run_job()
+        await _run_job(on_job_done)
 
     while True:
         target = next_run(datetime.now(tz), slot)
@@ -71,4 +75,4 @@ async def run_forever() -> None:
         # stops while a laptop sleeps, so one long sleep could fire hours late.
         while (remaining := (target - datetime.now(tz)).total_seconds()) > 0:
             await asyncio.sleep(min(remaining, 60))
-        await _run_job()
+        await _run_job(on_job_done)

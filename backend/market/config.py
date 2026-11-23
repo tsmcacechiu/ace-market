@@ -14,10 +14,12 @@ DB_PATH = Path(os.environ.get("MARKET_DB", BASE_DIR / "data" / "market.db"))
 DATABASE_URL = os.environ.get("DATABASE_URL") or f"sqlite:///{DB_PATH}"
 
 # Indices we evaluate. `etf` is the proxy used for P/E (Yahoo has no P/E for indices).
+# `market` decides which US-only metrics apply (e.g. ERP uses the US 10Y yield).
 TARGETS: dict[str, dict[str, str]] = {
-    "SPX": {"name": "S&P 500", "index": "^GSPC", "etf": "SPY"},
-    "NDX": {"name": "Nasdaq 100", "index": "^NDX", "etf": "QQQ"},
-    "SOX": {"name": "費城半導體", "index": "^SOX", "etf": "SOXX"},
+    "SPX": {"name": "S&P 500", "index": "^GSPC", "etf": "SPY", "market": "US"},
+    "NDX": {"name": "Nasdaq 100", "index": "^NDX", "etf": "QQQ", "market": "US"},
+    "SOX": {"name": "費城半導體", "index": "^SOX", "etf": "SOXX", "market": "US"},
+    "TWII": {"name": "台灣加權", "index": "^TWII", "etf": "0050.TW", "market": "TW"},
 }
 BENCHMARK = "SPX"  # relative strength is measured against this target
 
@@ -42,6 +44,9 @@ MIN_MONTHS_FOR_PERCENTILE = 12
 
 # Weight of each metric kind in the composite temperature.
 KIND_WEIGHTS = {"valuation": 2.0, "technical": 1.0}
+
+# Simple moving averages (trading days) shown on each index card.
+MA_WINDOWS = (50, 200, 500)
 
 # Days re-fetched on incremental price updates (covers late corrections from Yahoo).
 PRICE_OVERLAP_DAYS = 7

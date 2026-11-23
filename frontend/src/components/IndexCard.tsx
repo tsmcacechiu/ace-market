@@ -1,14 +1,19 @@
+import { Link } from "react-router-dom";
 import type { TargetSummary } from "../api";
 import { formatNumber, formatPct, levelOf } from "../format";
 
 export function IndexCard({ target }: { target: TargetSummary }) {
   const { quote, temperature } = target;
+  const movingAverages = target.moving_averages ?? []; // absent in responses from an older backend
   const lv = temperature !== null ? levelOf(temperature) : null;
 
   return (
     <section className="card" aria-label={target.name}>
       <div className="index-name">
-        {target.name} <span className="muted small">{target.symbol}</span>
+        <Link to={`/index/${target.id}`} className="card-link">
+          {target.name} <span className="muted small">{target.symbol}</span>
+          <span className="card-link-hint small">走勢圖 →</span>
+        </Link>
       </div>
       {quote ? (
         <>
@@ -19,6 +24,31 @@ export function IndexCard({ target }: { target: TargetSummary }) {
             </span>
             <span className="muted"> · {quote.date}</span>
           </div>
+          {movingAverages.length > 0 && (
+            <table className="ma-table small" aria-label="移動平均線">
+              <tbody>
+                {movingAverages.map((ma) => (
+                  <tr key={ma.window}>
+                    <th scope="row" className="secondary">
+                      {ma.window}MA
+                    </th>
+                    {ma.value !== null && ma.deviation_pct !== null ? (
+                      <>
+                        <td>{formatNumber(ma.value)}</td>
+                        <td className={ma.deviation_pct >= 0 ? "chg-up" : "chg-down"}>
+                          {formatPct(ma.deviation_pct)}
+                        </td>
+                      </>
+                    ) : (
+                      <td colSpan={2} className="muted">
+                        資料不足
+                      </td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </>
       ) : (
         <div className="muted">尚無價格資料</div>

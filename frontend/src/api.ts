@@ -24,12 +24,15 @@ export type Job = {
   detail: string | null;
 };
 
+export type MovingAverage = { window: number; value: number | null; deviation_pct: number | null };
+
 export type TargetSummary = {
   id: string;
   name: string;
   symbol: string;
   etf: string;
   quote: { date: string; close: number; change_pct: number } | null;
+  moving_averages: MovingAverage[];
   temperature: number | null;
   temperature_basis: { valuation: number; technical: number };
   metrics: Record<string, MetricScore | null>;
@@ -52,6 +55,14 @@ export type MetricHistory = {
   price: Point[];
 };
 
+export type IndexChart = {
+  target: { id: string; name: string; index: string; etf: string };
+  interval: "daily" | "weekly";
+  price: Point[];
+  moving_averages: { window: number; points: Point[] }[];
+  latest: MovingAverage[];
+};
+
 async function get<T>(path: string): Promise<T> {
   const res = await fetch(path);
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}: ${await res.text()}`);
@@ -62,4 +73,6 @@ export const api = {
   dashboard: () => get<Dashboard>("/api/dashboard"),
   metricHistory: (metricId: string, target: string, from?: string) =>
     get<MetricHistory>(`/api/metrics/${metricId}/${target}${from ? `?from=${from}` : ""}`),
+  indexChart: (target: string, from?: string) =>
+    get<IndexChart>(`/api/indices/${target}/chart${from ? `?from=${from}` : ""}`),
 };

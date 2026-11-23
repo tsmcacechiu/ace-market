@@ -13,7 +13,7 @@ type Props = {
 };
 
 /** Re-read CSS variables when the OS switches light/dark. */
-function useCssVars(names: string[]) {
+export function useCssVars(names: string[]) {
   const read = () => {
     const cs = getComputedStyle(document.documentElement);
     return Object.fromEntries(names.map((n) => [n, cs.getPropertyValue(`--${n}`).trim()]));

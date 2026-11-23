@@ -79,6 +79,7 @@ def _rel(store: DataStore, target: str) -> pd.Series:
 
 
 _ALL = list(TARGETS)
+_US = [t for t in _ALL if TARGETS[t]["market"] == "US"]
 _ETF_PE = {t: f"Yahoo {TARGETS[t]['etf']} trailing P/E（每日快照，自開始收集起累積）" for t in _ALL}
 
 METRICS: list[MetricDef] = [
@@ -119,7 +120,12 @@ METRICS: list[MetricDef] = [
         kind="valuation",
         higher_is_expensive=False,
         description="盈餘殖利率 (1 ÷ 本益比) − 10 年期公債殖利率。越低代表股票相對債券越沒吸引力，也就是越貴。",
-        sources={t: f"{src.split('（')[0]} − FRED DGS10" for t, src in {**_ETF_PE, "SPX": "multpl S&P 500 P/E"}.items()},
+        # US only: comparing Taiwan earnings yield with the US 10Y yield is not meaningful.
+        sources={
+            t: f"{src.split('（')[0]} − FRED DGS10"
+            for t, src in {**_ETF_PE, "SPX": "multpl S&P 500 P/E"}.items()
+            if t in _US
+        },
         compute=_erp,
     ),
     MetricDef(
