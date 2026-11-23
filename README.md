@@ -18,6 +18,20 @@ npm install
 npm run dev                                     # http://localhost:5173
 ```
 
+## 資料庫（Supabase / 本機 SQLite）
+
+連線設定放在 `backend/.env`（已被 `.gitignore` 排除，**不要 commit**），範本見 `backend/.env.example`：
+
+```bash
+cp backend/.env.example backend/.env   # 填入 DATABASE_URL
+```
+
+- 有設 `DATABASE_URL` → 讀寫 Supabase Postgres；沒設 → 用本機 `backend/data/market.db`（SQLite）。
+- 請用 Supabase **Session pooler**（`aws-0-<region>.pooler.supabase.com:5432`，帳號是 `postgres.<project-ref>`）。Direct connection（`db.<ref>.supabase.co`）只有 IPv6，多數家用網路連不上。
+- 密碼有特殊字元要 URL 編碼（`%` → `%25`、`@` → `%40`）。
+- 第一次執行會自動建表；換新資料庫後跑一次 `--full` 即可補齊歷史。
+- `job` 和 API 都讀同一個 `DATABASE_URL`，launchd 排程也會自動讀 `backend/.env`。
+
 ## 每天自動更新（macOS launchd）
 
 ```bash

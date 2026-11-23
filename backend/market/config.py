@@ -3,8 +3,15 @@
 import os
 from pathlib import Path
 
+from dotenv import load_dotenv
+
 BASE_DIR = Path(__file__).resolve().parent.parent
+# Secrets live in backend/.env (git-ignored). Real environment variables take precedence.
+load_dotenv(BASE_DIR / ".env")
+
 DB_PATH = Path(os.environ.get("MARKET_DB", BASE_DIR / "data" / "market.db"))
+# Set DATABASE_URL (e.g. Supabase Postgres) to use it instead of the local SQLite file.
+DATABASE_URL = os.environ.get("DATABASE_URL") or f"sqlite:///{DB_PATH}"
 
 # Indices we evaluate. `etf` is the proxy used for P/E (Yahoo has no P/E for indices).
 TARGETS: dict[str, dict[str, str]] = {
