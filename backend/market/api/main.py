@@ -1,33 +1,45 @@
 """uv run uvicorn market.api.main:app --reload"""
 
+import asyncio
+import contextlib
+import logging
 from collections.abc import Iterator
 from contextlib import asynccontextmanager
 from datetime import date
 
 import pandas as pd
-from fastapi import Depends, FastAPI, HTTPException, Query
+from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from market.config import MIN_MONTHS_FOR_PERCENTILE, PERCENTILE_YEARS, TARGETS
+from market.config import MIN_MONTHS_FOR_PERCENTILE, PERCENTILE_YEARS, SCHEDULE_ENABLED, TARGETS
 from market.db import SessionLocal, init_db
+from market.jobs import daily, scheduler
 from market.metrics import METRICS, METRICS_BY_ID
 from market.metrics.scoring import expensiveness, score, temperature
 from market.models import JobRun
 from market.store import DataStore
 
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     init_db()
+    task = asyncio.create_task(scheduler.run_forever()) if SCHEDULE_ENABLED else None
     yield
+    if task:
+        task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await task
 
 
 app = FastAPI(title="Market Valuation API", version="0.1.0", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
-    allow_methods=["GET"],
+    allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
 
@@ -65,6 +77,15 @@ def list_metrics() -> list[dict]:
 @app.get("/api/jobs/latest")
 def latest_job(store: DataStore = Depends(get_store)) -> dict | None:
     return _job_dict(_latest_job(store.session))
+
+
+@app.post("/api/jobs/run", status_code=202)
+def run_job(background: BackgroundTasks, full: bool = False) -> dict:
+    """Fetch the latest data now (same as the daily job). Poll /api/jobs/latest for the result."""
+    if daily.is_running():
+        raise HTTPException(409, "A job is already running")
+    background.add_task(daily.run_exclusive, full)
+    return {"status": "started", "full": full}
 
 
 @app.get("/api/dashboard")

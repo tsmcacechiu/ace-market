@@ -45,3 +45,9 @@ KIND_WEIGHTS = {"valuation": 2.0, "technical": 1.0}
 
 # Days re-fetched on incremental price updates (covers late corrections from Yahoo).
 PRICE_OVERLAP_DAYS = 7
+
+# In-process daily job, run by the API server (uvicorn). Set SCHEDULE_ENABLED=0 to turn it off,
+# e.g. when using the launchd job instead. Default 06:30 Taipei = after the US close.
+SCHEDULE_ENABLED = os.environ.get("SCHEDULE_ENABLED", "1").lower() not in ("0", "false", "no")
+SCHEDULE_TIME = os.environ.get("SCHEDULE_TIME", "06:30")  # HH:MM
+SCHEDULE_TZ = os.environ.get("SCHEDULE_TZ", "Asia/Taipei")

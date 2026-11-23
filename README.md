@@ -32,7 +32,34 @@ cp backend/.env.example backend/.env   # 填入 DATABASE_URL
 - 第一次執行會自動建表；換新資料庫後跑一次 `--full` 即可補齊歷史。
 - `job` 和 API 都讀同一個 `DATABASE_URL`，launchd 排程也會自動讀 `backend/.env`。
 
-## 每天自動更新（macOS launchd）
+## 每天自動更新
+
+### 方式一：API server 內建排程（預設）
+
+`uvicorn` 啟動後會自動排程，每天 **06:30（Asia/Taipei）** 抓資料，也就是美股收盤後。
+如果 server 啟動時今天的時段已經過了，而且之後都還沒跑過 job，會馬上補跑一次。
+
+手動觸發（例如想立刻抓最新資料）：
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/jobs/run            # 增量更新
+curl -X POST "http://127.0.0.1:8000/api/jobs/run?full=true"  # 重新下載完整歷史
+curl http://127.0.0.1:8000/api/jobs/latest                  # 查看結果
+```
+
+如果已經有 job 在跑，會回傳 `409`。可以在 `backend/.env` 調整：
+
+| 變數 | 預設 | 說明 |
+|---|---|---|
+| `SCHEDULE_ENABLED` | `1` | 設 `0` 關閉內建排程 |
+| `SCHEDULE_TIME` | `06:30` | 每天執行時間（HH:MM） |
+| `SCHEDULE_TZ` | `Asia/Taipei` | 時區 |
+
+注意：只用一個 uvicorn worker 跑（`--workers` > 1 會讓每個 worker 各排一次）。
+
+### 方式二：macOS launchd（server 沒開也會跑）
+
+要用這個方式，請在 `.env` 設 `SCHEDULE_ENABLED=0`，避免一天跑兩次。
 
 ```bash
 cp backend/scripts/com.market.daily.plist ~/Library/LaunchAgents/

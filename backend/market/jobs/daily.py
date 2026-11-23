@@ -9,6 +9,7 @@ Each step is isolated, so one failing source does not block the others.
 
 import argparse
 import logging
+import threading
 import traceback
 from collections.abc import Callable
 from datetime import datetime, timedelta
@@ -142,6 +143,23 @@ def run(full: bool = False) -> JobRun:
         job.detail = "\n".join(lines)
         session.commit()
         return job
+
+
+_lock = threading.Lock()
+
+
+def is_running() -> bool:
+    return _lock.locked()
+
+
+def run_exclusive(full: bool = False) -> JobRun | None:
+    """run(), unless another run in this process is in progress (then returns None)."""
+    if not _lock.acquire(blocking=False):
+        return None
+    try:
+        return run(full=full)
+    finally:
+        _lock.release()
 
 
 def main() -> None:
