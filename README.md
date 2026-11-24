@@ -68,6 +68,16 @@ launchctl start com.market.daily               # 立刻跑一次測試
 ```
 每天 06:30 執行，紀錄在 `backend/data/logs/`。停用：`launchctl unload ~/Library/LaunchAgents/com.market.daily.plist`
 
+## 部署（前後端分開）
+
+| 環境變數 | 設在 | 說明 |
+|---|---|---|
+| `VITE_API_BASE` | 前端（**build 時**） | 後端網址，例如 `https://market-api.onrender.com`。本機開發不用設，Vite 會把 `/api` 轉到 `127.0.0.1:8000` |
+| `CORS_ORIGINS` | 後端 | 允許呼叫 API 的前端網址，逗號分隔，例如 `https://market-web.onrender.com`。預設只允許 `localhost:5173` |
+| `DATABASE_URL` | 後端 | 同上方「資料庫」一節 |
+
+範本見 `frontend/.env.example`、`backend/.env.example`。`VITE_API_BASE` 是在 build 時寫進前端檔案的，改了要重新 build / 重新部署前端才會生效。
+
 ## 測試
 
 ```bash

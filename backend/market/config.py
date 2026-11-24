@@ -13,6 +13,13 @@ DB_PATH = Path(os.environ.get("MARKET_DB", BASE_DIR / "data" / "market.db"))
 # Set DATABASE_URL (e.g. Supabase Postgres) to use it instead of the local SQLite file.
 DATABASE_URL = os.environ.get("DATABASE_URL") or f"sqlite:///{DB_PATH}"
 
+# Browser origins allowed to call the API (comma-separated), e.g. the deployed frontend URL.
+CORS_ORIGINS = [
+    o.strip().rstrip("/")
+    for o in os.environ.get("CORS_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173").split(",")
+    if o.strip()
+]
+
 # Indices we evaluate. `etf` is the proxy used for P/E (Yahoo has no P/E for indices).
 # `market` decides which US-only metrics apply (e.g. ERP uses the US 10Y yield).
 TARGETS: dict[str, dict[str, str]] = {

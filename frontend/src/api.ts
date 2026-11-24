@@ -63,8 +63,14 @@ export type IndexChart = {
   latest: MovingAverage[];
 };
 
+/**
+ * Backend origin, e.g. "https://market-api.onrender.com". Set VITE_API_BASE at build time.
+ * Empty in local dev: requests stay relative and Vite proxies /api to 127.0.0.1:8000.
+ */
+const API_BASE = (import.meta.env.VITE_API_BASE ?? "").replace(/\/+$/, "");
+
 async function get<T>(path: string): Promise<T> {
-  const res = await fetch(path);
+  const res = await fetch(`${API_BASE}${path}`);
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}: ${await res.text()}`);
   return res.json() as Promise<T>;
 }

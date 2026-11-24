@@ -14,7 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from market.config import MA_WINDOWS, MIN_MONTHS_FOR_PERCENTILE, PERCENTILE_YEARS, SCHEDULE_ENABLED, TARGETS
+from market.config import CORS_ORIGINS, MA_WINDOWS, MIN_MONTHS_FOR_PERCENTILE, PERCENTILE_YEARS, SCHEDULE_ENABLED, TARGETS
 from market.db import SessionLocal, init_db
 from market.jobs import daily, scheduler
 from market.metrics import METRICS, METRICS_BY_ID
@@ -42,7 +42,7 @@ async def lifespan(_: FastAPI):
 app = FastAPI(title="Market Valuation API", version="0.1.0", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=CORS_ORIGINS,
     allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
