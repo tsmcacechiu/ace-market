@@ -76,6 +76,20 @@ launchctl start com.market.daily               # 立刻跑一次測試
 | `CORS_ORIGINS` | 後端 | 允許呼叫 API 的前端網址，逗號分隔，例如 `https://market-web.onrender.com`。預設只允許 `localhost:5173` |
 | `DATABASE_URL` | 後端 | 同上方「資料庫」一節 |
 
+### 後端部署到 Render
+
+設定在根目錄的 `render.yaml`（Blueprint）。第一次：
+
+1. Render Dashboard → **New → Blueprint** → 選這個 GitHub repo → 會建立 `market-api`（新加坡、Free）。
+2. 填入 `DATABASE_URL`（跟 `backend/.env` 同一條），`CORS_ORIGINS` 先留空，等前端部署後再填。
+3. 部署完成後打開 `https://<服務網址>/docs` 確認。
+
+之後 push 到 `main` 會自動重新部署。
+
+- **Free 方案閒置 15 分鐘會休眠**，休眠時內建排程不會跑；下次有人打開網站喚醒時（約 1 分鐘），若錯過當天 06:30 會自動補跑。
+- `TZ=Asia/Taipei`：job 時間以伺服器時區記錄，和本機寫入的舊資料一致。
+- 本機和 Render 都開著 server 時，兩邊都會排程抓資料（結果相同，只是重複）。要避免的話，本機 `.env` 設 `SCHEDULE_ENABLED=0`。
+
 範本見 `frontend/.env.example`、`backend/.env.example`。`VITE_API_BASE` 是在 build 時寫進前端檔案的，改了要重新 build / 重新部署前端才會生效。
 
 ## 測試
