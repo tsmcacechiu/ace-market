@@ -1,1 +1,0 @@
-{"root":["./src/api.ts","./src/format.ts","./src/main.tsx","./src/components/indexcard.tsx","./src/components/indexchart.tsx","./src/components/metricchart.tsx","./src/components/metrictable.tsx","./src/components/percentilebadge.tsx","./src/pages/dashboard.tsx","./src/pages/indexdetail.tsx","./src/pages/metricdetail.tsx","./vite.config.ts"],"version":"5.6.3"}
