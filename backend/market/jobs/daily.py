@@ -39,6 +39,10 @@ def update_prices(session: Session, full: bool) -> str:
         last = session.scalar(select(func.max(Price.date)).where(Price.symbol == sym))
         start = None if full or last is None else last - timedelta(days=PRICE_OVERLAP_DAYS)
         df = yahoo.fetch_history(sym, start)
+        if yahoo.is_tw_listed(sym):
+            df = yahoo.drop_non_trading_days(df)
+            # Also remove phantom holiday rows stored before this filter existed.
+            session.execute(delete(Price).where(Price.symbol == sym, Price.volume == 0))
         n = upsert(
             session,
             Price,

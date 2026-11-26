@@ -17,6 +17,18 @@ def fetch_history(symbol: str, start: date | None = None) -> pd.DataFrame:
     return df[["Open", "High", "Low", "Close", "Volume"]].dropna(subset=["Close"])
 
 
+def is_tw_listed(symbol: str) -> bool:
+    """TWSE-listed stocks/ETFs (e.g. 2330.TW). Their volume is reliable, unlike indices'."""
+    return symbol.endswith(".TW")
+
+
+def drop_non_trading_days(df: pd.DataFrame) -> pd.DataFrame:
+    """Drop zero-volume rows. For listed TW securities Yahoo emits them on exchange holidays
+    and trading halts (e.g. 2026-10-23, 0050's 2025 split) with a stale price, which would
+    count as extra trading days in moving averages. Do not apply to indices: they report no volume."""
+    return df[df["Volume"].fillna(0) > 0]
+
+
 def fetch_trailing_pe(symbol: str) -> tuple[date, float]:
     """Today's trailing P/E for an ETF, dated to its latest trading day."""
     ticker = yf.Ticker(symbol)
