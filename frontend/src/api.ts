@@ -1,3 +1,11 @@
+/** Which page an asset belongs to: home dashboard or 個股診斷. */
+export type Group = "market" | "stock";
+
+export const BOARDS: Record<Group, { path: string; title: string }> = {
+  market: { path: "/", title: "市場總覽" },
+  stock: { path: "/stocks", title: "個股診斷" },
+};
+
 export type MetricDef = {
   id: string;
   name: string;
@@ -6,6 +14,8 @@ export type MetricDef = {
   higher_is_expensive: boolean;
   description: string;
   sources: Record<string, string>;
+  /** False = reference only, not part of the market temperature. */
+  in_temperature: boolean;
 };
 
 export type MetricScore = {
@@ -49,14 +59,14 @@ export type Point = [string, number];
 
 export type MetricHistory = {
   metric: MetricDef;
-  target: { id: string; name: string; index: string; etf: string | null };
+  target: { id: string; name: string; index: string; etf: string | null; group: Group };
   score: (MetricScore & { bands: Record<string, number> | null }) | null;
   points: Point[];
   price: Point[];
 };
 
 export type IndexChart = {
-  target: { id: string; name: string; index: string; etf: string | null };
+  target: { id: string; name: string; index: string; etf: string | null; group: Group };
   interval: "daily" | "weekly";
   price: Point[];
   moving_averages: { window: number; points: Point[] }[];
@@ -77,6 +87,7 @@ async function get<T>(path: string): Promise<T> {
 
 export const api = {
   dashboard: () => get<Dashboard>("/api/dashboard"),
+  stocks: () => get<Dashboard>("/api/stocks"),
   metricHistory: (metricId: string, target: string, from?: string) =>
     get<MetricHistory>(`/api/metrics/${metricId}/${target}${from ? `?from=${from}` : ""}`),
   indexChart: (target: string, from?: string) =>

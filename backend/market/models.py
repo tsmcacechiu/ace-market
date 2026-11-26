@@ -23,7 +23,7 @@ class Observation(Base):
     """Raw values from external sources (FRED, multpl, ETF P/E snapshots)."""
 
     __tablename__ = "raw_observations"
-    source: Mapped[str] = mapped_column(String, primary_key=True)  # fred | multpl | yahoo_etf_pe
+    source: Mapped[str] = mapped_column(String, primary_key=True)  # fred | multpl | yahoo_etf_pe | twse
     series_id: Mapped[str] = mapped_column(String, primary_key=True)
     date: Mapped[date] = mapped_column(Date, primary_key=True)
     value: Mapped[float] = mapped_column(Float)

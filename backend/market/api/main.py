@@ -14,7 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from market.config import CORS_ORIGINS, MA_WINDOWS, MIN_MONTHS_FOR_PERCENTILE, PERCENTILE_YEARS, SCHEDULE_ENABLED, TARGETS
+from market.config import CORS_ORIGINS, GROUPS, MA_WINDOWS, MIN_MONTHS_FOR_PERCENTILE, PERCENTILE_YEARS, SCHEDULE_ENABLED, TARGETS
 from market.db import SessionLocal, init_db
 from market.jobs import daily, scheduler
 from market.metrics import METRICS, METRICS_BY_ID
@@ -112,30 +112,33 @@ def run_job(background: BackgroundTasks, full: bool = False) -> dict:
     return {"status": "started", "full": full}
 
 
-# The dashboard reads full histories (slow against a remote DB) but only changes when a job
-# writes new data, so it is cached and rebuilt when the latest job's state changes.
+# A board (home dashboard or 個股診斷) reads full histories (slow against a remote DB) but only
+# changes when a job writes new data, so each group is cached and rebuilt when the latest
+# job's state changes.
 _dashboard_lock = threading.Lock()
-_dashboard_cache: dict = {"key": None, "data": None}
+_dashboard_cache: dict[str, dict] = {}
 
 
 def _job_key(job: JobRun | None) -> tuple | None:
     return None if job is None else (job.id, job.status, job.finished_at)
 
 
-def cached_dashboard(store: DataStore) -> dict:
+def cached_dashboard(store: DataStore, group: str = "market") -> dict:
     with _dashboard_lock:  # concurrent requests wait for one build instead of each building
         job = _latest_job(store.session)
         key = _job_key(job)
-        if _dashboard_cache["data"] is None or _dashboard_cache["key"] != key:
-            _dashboard_cache["data"] = _build_dashboard(store, job)
-            _dashboard_cache["key"] = key
-        return _dashboard_cache["data"]
+        entry = _dashboard_cache.get(group)
+        if entry is None or entry["key"] != key:
+            entry = {"key": key, "data": _build_dashboard(store, job, group)}
+            _dashboard_cache[group] = entry
+        return entry["data"]
 
 
 def _warm_dashboard() -> None:
     try:
         with SessionLocal() as session:
-            cached_dashboard(DataStore(session))
+            for group in GROUPS:
+                cached_dashboard(DataStore(session), group)
         log.info("dashboard cache warmed")
     except Exception:
         log.exception("dashboard cache warm-up failed")
@@ -143,12 +146,20 @@ def _warm_dashboard() -> None:
 
 @app.get("/api/dashboard")
 def dashboard(store: DataStore = Depends(get_store)) -> dict:
-    return cached_dashboard(store)
+    """Home page: market indices, gold, bitcoin."""
+    return cached_dashboard(store, "market")
 
 
-def _build_dashboard(store: DataStore, job: JobRun | None) -> dict:
+@app.get("/api/stocks")
+def stocks(store: DataStore = Depends(get_store)) -> dict:
+    """個股診斷 page: same shape as /api/dashboard, for the stock group."""
+    return cached_dashboard(store, "stock")
+
+
+def _build_dashboard(store: DataStore, job: JobRun | None, group: str = "market") -> dict:
+    group_targets = {tid: t for tid, t in TARGETS.items() if t.get("group", "market") == group}
     targets = []
-    for tid, t in TARGETS.items():
+    for tid, t in group_targets.items():
         close = store.close(t["index"]).dropna()
         quote = None
         if len(close) >= 2:
@@ -167,7 +178,8 @@ def _build_dashboard(store: DataStore, job: JobRun | None) -> dict:
                 metrics[m.id] = None
                 continue
             exp = expensiveness(sc.percentile, m.higher_is_expensive)
-            temp_items.append((m.kind, exp))
+            if m.in_temperature:
+                temp_items.append((m.kind, exp))
             metrics[m.id] = {
                 "value": sc.value,
                 "date": sc.date.date().isoformat(),
@@ -197,7 +209,8 @@ def _build_dashboard(store: DataStore, job: JobRun | None) -> dict:
     return {
         "settings": {"percentile_years": PERCENTILE_YEARS, "min_months": MIN_MONTHS_FOR_PERCENTILE},
         "job": _job_dict(job),
-        "metrics": [m.to_dict() for m in METRICS],
+        # Only rows that apply to at least one asset on this page.
+        "metrics": [m.to_dict() for m in METRICS if set(m.sources) & set(group_targets)],
         "targets": targets,
     }
 

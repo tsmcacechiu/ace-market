@@ -24,15 +24,25 @@ CORS_ORIGINS = [
 # `etf` is the proxy used for P/E (Yahoo has no P/E for indices); None for assets without
 # earnings (gold, bitcoin), which therefore get technical metrics only.
 # `market` decides which US-only metrics apply (e.g. ERP uses the US 10Y yield).
+# `group` picks the page: "market" = home dashboard, "stock" = 個股診斷.
+# `twse` (stocks only) is the TWSE code for daily P/E, P/B and dividend-yield history.
 TARGETS: dict[str, dict[str, str | None]] = {
-    "SPX": {"name": "S&P 500", "index": "^GSPC", "etf": "SPY", "market": "US"},
-    "NDX": {"name": "Nasdaq 100", "index": "^NDX", "etf": "QQQ", "market": "US"},
-    "SOX": {"name": "費城半導體", "index": "^SOX", "etf": "SOXX", "market": "US"},
-    "TWII": {"name": "台灣加權", "index": "^TWII", "etf": "0050.TW", "market": "TW"},
-    "GOLD": {"name": "黃金", "index": "GC=F", "etf": None, "market": "GLOBAL"},  # COMEX futures, USD/oz
-    "BTC": {"name": "比特幣", "index": "BTC-USD", "etf": None, "market": "GLOBAL"},  # trades 7 days a week
+    "SPX": {"name": "S&P 500", "index": "^GSPC", "etf": "SPY", "market": "US", "group": "market"},
+    "NDX": {"name": "Nasdaq 100", "index": "^NDX", "etf": "QQQ", "market": "US", "group": "market"},
+    "SOX": {"name": "費城半導體", "index": "^SOX", "etf": "SOXX", "market": "US", "group": "market"},
+    "TWII": {"name": "台灣加權", "index": "^TWII", "etf": "0050.TW", "market": "TW", "group": "market"},
+    # COMEX futures, USD/oz
+    "GOLD": {"name": "黃金", "index": "GC=F", "etf": None, "market": "GLOBAL", "group": "market"},
+    # trades 7 days a week
+    "BTC": {"name": "比特幣", "index": "BTC-USD", "etf": None, "market": "GLOBAL", "group": "market"},
+    # 個股診斷. 0050 is an ETF: TWSE has no P/E for it, so it uses Yahoo snapshots like TWII.
+    "0050": {"name": "元大台灣50", "index": "0050.TW", "etf": "0050.TW", "market": "TW", "group": "stock"},
+    "2330": {"name": "台積電", "index": "2330.TW", "etf": None, "twse": "2330", "market": "TW", "group": "stock"},
+    "2454": {"name": "聯發科", "index": "2454.TW", "etf": None, "twse": "2454", "market": "TW", "group": "stock"},
 }
-BENCHMARK = "SPX"  # relative strength is measured against this target
+GROUPS = ("market", "stock")
+BENCHMARK = "SPX"  # relative strength on the home page is measured against this target
+STOCK_BENCHMARK = "TWII"  # ... and on the 個股診斷 page against this one
 
 # Wilshire 5000 is used to extend the quarterly Buffett indicator to today.
 EXTRA_PRICE_SYMBOLS = ["^W5000"]

@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 
 import pandas as pd
 
-from market.config import BENCHMARK, FRED_SERIES, MULTPL_SERIES, TARGETS
+from market.config import BENCHMARK, FRED_SERIES, MULTPL_SERIES, STOCK_BENCHMARK, TARGETS
 from market.metrics import calc
 from market.store import DataStore
 
@@ -22,6 +22,9 @@ class MetricDef:
     description: str
     sources: dict[str, str]  # target -> human-readable data source
     compute: ComputeFn = field(repr=False)
+    # False = shown in the table for reference only, left out of the composite temperature
+    # (e.g. extra moving-average windows would otherwise count the same signal several times).
+    in_temperature: bool = True
 
     @property
     def targets(self) -> list[str]:
@@ -36,6 +39,7 @@ class MetricDef:
             "higher_is_expensive": self.higher_is_expensive,
             "description": self.description,
             "sources": self.sources,
+            "in_temperature": self.in_temperature,
         }
 
 
@@ -44,10 +48,17 @@ def _index_close(store: DataStore, target: str) -> pd.Series:
 
 
 def _pe(store: DataStore, target: str) -> pd.Series:
-    # S&P 500 has a long monthly history on multpl; others only have our daily ETF snapshots.
+    # S&P 500 has a long monthly history on multpl; TWSE stocks have daily history since 2005;
+    # others only have our daily ETF snapshots.
     if target == "SPX":
         return store.observations("multpl", MULTPL_SERIES["pe"])
+    if code := TARGETS[target].get("twse"):
+        return store.observations("twse", f"{code}:pe")
     return store.observations("yahoo_etf_pe", TARGETS[target]["etf"])
+
+
+def _twse(field: str) -> ComputeFn:
+    return lambda store, target: store.observations("twse", f"{TARGETS[target]['twse']}:{field}")
 
 
 def _cape(store: DataStore, target: str) -> pd.Series:
@@ -66,8 +77,23 @@ def _erp(store: DataStore, target: str) -> pd.Series:
     return calc.earnings_yield_spread(_pe(store, target), store.observations("fred", FRED_SERIES["DGS10"]))
 
 
-def _ma200(store: DataStore, target: str) -> pd.Series:
-    return calc.ma_deviation(_index_close(store, target), 200)
+def _ma_dev(window: int) -> ComputeFn:
+    return lambda store, target: calc.ma_deviation(_index_close(store, target), window)
+
+
+def _ma_dev_metric(window: int, note: str, in_temperature: bool) -> MetricDef:
+    return MetricDef(
+        id=f"ma{window}_dev",
+        name=f"偏離 {window} 日均線",
+        unit="%",
+        kind="technical",
+        higher_is_expensive=True,
+        description=f"價格高於 {window} 日均線多少 %。{note}不是估值。"
+        "（比特幣全年無休，以自然日計算。）",
+        sources={t: f"Yahoo {TARGETS[t]['index']}" for t in _ALL},
+        compute=_ma_dev(window),
+        in_temperature=in_temperature,
+    )
 
 
 def _drawdown(store: DataStore, target: str) -> pd.Series:
@@ -78,7 +104,16 @@ def _rel(store: DataStore, target: str) -> pd.Series:
     return calc.relative_strength_deviation(_index_close(store, target), _index_close(store, BENCHMARK), 200)
 
 
+def _rel_tw(store: DataStore, target: str) -> pd.Series:
+    return calc.relative_strength_deviation(
+        _index_close(store, target), _index_close(store, STOCK_BENCHMARK), 200
+    )
+
+
 _ALL = list(TARGETS)
+_MARKET = [t for t in _ALL if TARGETS[t]["group"] == "market"]
+_STOCKS = [t for t in _ALL if TARGETS[t]["group"] == "stock"]
+_TWSE = {t: f"證交所 {TARGETS[t]['twse']}" for t in _ALL if TARGETS[t].get("twse")}
 _US = [t for t in _ALL if TARGETS[t]["market"] == "US"]
 # Only assets with an earnings proxy get P/E-based metrics.
 _ETF_PE = {
@@ -93,8 +128,32 @@ METRICS: list[MetricDef] = [
         kind="valuation",
         higher_is_expensive=True,
         description="價格 ÷ 過去 12 個月盈餘。最直觀的估值指標，但景氣循環底部時盈餘驟降會讓本益比看起來偏高。",
-        sources={**_ETF_PE, "SPX": "multpl.com S&P 500 P/E（月資料，1871 起）"},
+        sources={
+            **_ETF_PE,
+            "SPX": "multpl.com S&P 500 P/E（月資料，1871 起）",
+            **{t: f"{src} 本益比（每日，2005/09 起）" for t, src in _TWSE.items()},
+        },
         compute=_pe,
+    ),
+    MetricDef(
+        id="pb",
+        name="股價淨值比",
+        unit="x",
+        kind="valuation",
+        higher_is_expensive=True,
+        description="股價 ÷ 每股淨值。盈餘波動大時比本益比穩定，適合看景氣循環股。",
+        sources={t: f"{src} 股價淨值比（每日，2005/09 起）" for t, src in _TWSE.items()},
+        compute=_twse("pb"),
+    ),
+    MetricDef(
+        id="div_yield",
+        name="殖利率",
+        unit="%",
+        kind="valuation",
+        higher_is_expensive=False,
+        description="最近年度現金股利 ÷ 股價。殖利率越低代表股價相對配息越貴。",
+        sources={t: f"{src} 殖利率（每日，2005/09 起）" for t, src in _TWSE.items()},
+        compute=_twse("yield"),
     ),
     MetricDef(
         id="cape",
@@ -131,16 +190,10 @@ METRICS: list[MetricDef] = [
         },
         compute=_erp,
     ),
-    MetricDef(
-        id="ma200_dev",
-        name="偏離 200 日均線",
-        unit="%",
-        kind="technical",
-        higher_is_expensive=True,
-        description="指數高於 200 日均線多少 %。衡量中期過熱程度，不是估值。",
-        sources={t: f"Yahoo {TARGETS[t]['index']}" for t in _ALL},
-        compute=_ma200,
-    ),
+    _ma_dev_metric(200, "衡量中期過熱程度，", in_temperature=True),
+    # Reference only: same signal as the 200-day deviation, so not counted in the temperature again.
+    _ma_dev_metric(240, "240 日即台股常說的「年線」。僅供參考，不計入市場溫度，", in_temperature=False),
+    _ma_dev_metric(500, "約兩年的長期趨勢。僅供參考，不計入市場溫度，", in_temperature=False),
     MetricDef(
         id="drawdown",
         name="距歷史高點",
@@ -158,8 +211,18 @@ METRICS: list[MetricDef] = [
         kind="technical",
         higher_is_expensive=True,
         description="價格 ÷ S&P 500 的比值，高於自己 200 日均線多少 %。用來看科技股、半導體、黃金或比特幣相對美股大盤是否過熱。",
-        sources={t: f"Yahoo {TARGETS[t]['index']} ÷ ^GSPC" for t in _ALL if t != BENCHMARK},
+        sources={t: f"Yahoo {TARGETS[t]['index']} ÷ ^GSPC" for t in _MARKET if t != BENCHMARK},
         compute=_rel,
+    ),
+    MetricDef(
+        id="rel_twii",
+        name="相對台灣加權強弱",
+        unit="%",
+        kind="technical",
+        higher_is_expensive=True,
+        description="個股 ÷ 台灣加權指數的比值，高於自己 200 日均線多少 %。看個股相對台股大盤是否過熱。",
+        sources={t: f"Yahoo {TARGETS[t]['index']} ÷ ^TWII" for t in _STOCKS},
+        compute=_rel_tw,
     ),
 ]
 

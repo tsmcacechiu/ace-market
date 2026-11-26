@@ -1,10 +1,11 @@
 import type { MetricDef } from "./api";
 
 // Metrics where the sign matters (distance from an average / a high).
-const SIGNED = new Set(["ma200_dev", "drawdown", "rel_strength", "erp"]);
+const SIGNED = new Set(["drawdown", "rel_strength", "erp"]);
+const isSigned = (id: string) => SIGNED.has(id) || /^ma\d+_dev$/.test(id);
 
 export function formatMetric(def: MetricDef, value: number): string {
-  const sign = SIGNED.has(def.id) && value > 0 ? "+" : "";
+  const sign = isSigned(def.id) && value > 0 ? "+" : "";
   switch (def.unit) {
     case "x":
       return `${value.toFixed(1)}x`;

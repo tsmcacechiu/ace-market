@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import ReactECharts from "echarts-for-react";
 import type { Point } from "../api";
 import { formatNumber } from "../format";
+import { COMPACT_QUERY, useMediaQuery } from "../hooks/useMediaQuery";
 import { useCssVars } from "./MetricChart";
 
 type Props = {
@@ -17,6 +18,7 @@ const MA_COLOR_VARS = ["series-1", "series-2", "series-3"];
 /** Index price with its moving averages, all on one price axis. */
 export function IndexChart({ priceName, price, movingAverages, logScale }: Props) {
   const c = useCssVars(["surface", "ink", "ink-2", "muted", "grid", "axis", ...MA_COLOR_VARS]);
+  const compact = useMediaQuery(COMPACT_QUERY);
 
   const option = useMemo(() => {
     const maSeries = movingAverages.map((ma, i) => {
@@ -30,7 +32,7 @@ export function IndexChart({ priceName, price, movingAverages, logScale }: Props
         itemStyle: { color },
         emphasis: { disabled: true },
         // Direct label at the line end, in text ink (the line itself carries the color).
-        endLabel: { show: true, formatter: `${ma.window}MA`, color: c["ink-2"], fontSize: 11 },
+        endLabel: { show: true, formatter: `${ma.window}MA`, color: c["ink-2"], fontSize: compact ? 10 : 11 },
       };
     });
 
@@ -58,7 +60,8 @@ export function IndexChart({ priceName, price, movingAverages, logScale }: Props
           return [params[0].value[0], ...rows].join("<br/>");
         },
       },
-      grid: { left: 64, right: 64, top: 36, bottom: 64 },
+      // Phones: tighter margins so the plot gets the width; end labels still fit on the right.
+      grid: compact ? { left: 44, right: 48, top: 48, bottom: 56 } : { left: 64, right: 64, top: 36, bottom: 64 },
       xAxis: {
         type: "time",
         axisLine: { lineStyle: { color: c.axis } },
@@ -71,7 +74,12 @@ export function IndexChart({ priceName, price, movingAverages, logScale }: Props
         scale: true,
         axisLine: { show: false },
         axisTick: { show: false },
-        axisLabel: { color: c.muted, fontSize: 11, formatter: (v: number) => formatNumber(v, 0) },
+        axisLabel: {
+          color: c.muted,
+          fontSize: compact ? 10 : 11,
+          // Phones: 45,000 -> 45k keeps the axis narrow.
+          formatter: (v: number) => (compact && v >= 10_000 ? `${formatNumber(v / 1000, 0)}k` : formatNumber(v, 0)),
+        },
         splitLine: { lineStyle: { color: c.grid, width: 1 } },
       },
       dataZoom: [
@@ -99,7 +107,7 @@ export function IndexChart({ priceName, price, movingAverages, logScale }: Props
         ...maSeries,
       ],
     };
-  }, [c, priceName, price, movingAverages, logScale]);
+  }, [c, priceName, price, movingAverages, logScale, compact]);
 
-  return <ReactECharts option={option} notMerge style={{ height: 520 }} />;
+  return <ReactECharts option={option} notMerge style={{ height: compact ? 380 : 520 }} />;
 }

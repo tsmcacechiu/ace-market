@@ -2,6 +2,7 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { SiteNav } from "./components/SiteNav";
 import { DashboardPage } from "./pages/Dashboard";
 import { IndexDetailPage } from "./pages/IndexDetail";
 import { MetricDetailPage } from "./pages/MetricDetail";
@@ -15,8 +16,10 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
+        <SiteNav />
         <Routes>
-          <Route path="/" element={<DashboardPage />} />
+          <Route path="/" element={<DashboardPage group="market" />} />
+          <Route path="/stocks" element={<DashboardPage group="stock" />} />
           <Route path="/index/:target" element={<IndexDetailPage />} />
           <Route path="/metric/:metricId/:target" element={<MetricDetailPage />} />
         </Routes>

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
-import { api } from "../api";
+import { api, BOARDS } from "../api";
 import { IndexChart } from "../components/IndexChart";
 import { formatNumber, formatPct } from "../format";
 
@@ -38,7 +38,9 @@ export function IndexDetailPage() {
   return (
     <div className="page">
       <p className="small">
-        <Link to="/">← 回總覽</Link>
+        <Link to={BOARDS[data?.target.group ?? "market"].path}>
+          ← 回{BOARDS[data?.target.group ?? "market"].title}
+        </Link>
       </p>
       {isLoading && <div className="muted">載入中…</div>}
       {error && <div className="card error">{String(error)}</div>}

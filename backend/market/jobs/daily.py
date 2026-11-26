@@ -18,7 +18,7 @@ import pandas as pd
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
-from market.collectors import fred, multpl, yahoo
+from market.collectors import fred, multpl, twse, yahoo
 from market.config import EXTRA_PRICE_SYMBOLS, FRED_SERIES, MULTPL_SERIES, PRICE_OVERLAP_DAYS, TARGETS
 from market.db import SessionLocal, init_db, upsert
 from market.metrics import METRICS
@@ -33,7 +33,8 @@ def _num(v) -> float | None:
 
 
 def update_prices(session: Session, full: bool) -> str:
-    symbols = [t["index"] for t in TARGETS.values()] + EXTRA_PRICE_SYMBOLS
+    # dict.fromkeys: unique, in order (0050.TW is both a stock and TWII's P/E proxy).
+    symbols = list(dict.fromkeys([t["index"] for t in TARGETS.values()] + EXTRA_PRICE_SYMBOLS))
     parts = []
     for sym in symbols:
         last = session.scalar(select(func.max(Price.date)).where(Price.symbol == sym))
@@ -77,12 +78,39 @@ def _store_series(session: Session, source: str, series_id: str, s: pd.Series) -
 
 def update_etf_pe(session: Session, full: bool) -> str:
     parts = []
-    for t in TARGETS.values():
-        if not t["etf"]:  # gold, bitcoin: no earnings
-            continue
-        d, pe = yahoo.fetch_trailing_pe(t["etf"])
-        _store_series(session, "yahoo_etf_pe", t["etf"], pd.Series([pe], index=[pd.Timestamp(d)]))
-        parts.append(f"{t['etf']}={pe:.2f}@{d}")
+    for etf in dict.fromkeys(t["etf"] for t in TARGETS.values() if t["etf"]):  # gold, bitcoin: none
+        d, pe = yahoo.fetch_trailing_pe(etf)
+        _store_series(session, "yahoo_etf_pe", etf, pd.Series([pe], index=[pd.Timestamp(d)]))
+        parts.append(f"{etf}={pe:.2f}@{d}")
+    return " ".join(parts)
+
+
+def update_twse(session: Session, full: bool) -> str:
+    """Daily P/E, P/B, dividend yield per stock from TWSE, one request per month.
+
+    First run backfills from 2005-09 (~250 requests per stock, ~13 min at TWSE's pace);
+    later runs re-fetch from the month of the latest stored day. Commits every year of
+    months so an interrupted backfill resumes where it stopped.
+    """
+    parts = []
+    today = pd.Timestamp.now().normalize()
+    for code in [t["twse"] for t in TARGETS.values() if t.get("twse")]:
+        last = session.scalar(
+            select(func.max(Observation.date)).where(
+                Observation.source == "twse", Observation.series_id == f"{code}:pe"
+            )
+        )
+        start = twse.START if full or last is None else pd.Timestamp(last)
+        months = twse.months_between(start, today)
+        rows = 0
+        for i, (year, month) in enumerate(months, 1):
+            df = twse.fetch_month(code, year, month)
+            for col in df.columns:
+                rows += _store_series(session, "twse", f"{code}:{col}", df[col].dropna())
+            if i % 12 == 0:
+                session.commit()
+                log.info("twse %s: %d/%d months", code, i, len(months))
+        parts.append(f"{code}:{len(months)}m/{rows}")
     return " ".join(parts)
 
 
@@ -120,6 +148,7 @@ STEPS: list[tuple[str, Callable[[Session, bool], str]]] = [
     ("etf_pe", update_etf_pe),
     ("fred", update_fred),
     ("multpl", update_multpl),
+    ("twse", update_twse),
     ("metrics", compute_metrics),  # last: uses whatever the steps above managed to store
 ]
 

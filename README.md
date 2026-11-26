@@ -1,6 +1,8 @@
 # 市場溫度計
 
-每天抓 S&P 500 / Nasdaq 100 / 費城半導體 / 台灣加權指數的估值與技術指標，換算成歷史百分位，判斷大盤貴還是便宜。
+每天抓 S&P 500 / Nasdaq 100 / 費城半導體 / 台灣加權指數 / 黃金 / 比特幣的估值與技術指標，換算成歷史百分位，判斷大盤貴還是便宜。
+
+另有「個股診斷」頁（`/stocks`）：0050、台積電、聯發科，台積電與聯發科另有證交所的本益比、股價淨值比、殖利率歷史（2005/09 起）。
 設計與後續規劃見 [plan.md](plan.md)。
 
 ## 啟動
@@ -102,11 +104,15 @@ cd backend && uv run pytest
 
 | 資料 | 來源 |
 |---|---|
-| 指數價格、ETF 本益比快照 | Yahoo Finance（yfinance） |
+| 指數 / 個股價格、ETF 本益比快照 | Yahoo Finance（yfinance） |
+| 個股本益比、股價淨值比、殖利率（每日） | 證交所 BWIBBU（每月一次請求，間隔 3 秒，避免被擋） |
 | GDP、企業股權市值、10 年期公債殖利率 | FRED CSV（不需 API key） |
 | S&P 500 本益比、席勒本益比 | multpl.com |
 
 FRED 和 multpl 會擋一般 Python HTTP client，所以用 `curl_cffi` 模擬瀏覽器（`market/collectors/http.py`）。
+
+- **台股假交易日**：Yahoo 對台股個股 / ETF 會在休市日（例如 2026/10/23）和暫停交易期間補一筆成交量 0、價格沿用前一天的資料，會讓均線多算天數。代號 `.TW` 的資料會剔除成交量 0 的日子（指數沒有成交量資料，不適用）。
+- **新增個股**：在 `TARGETS` 加一筆 `group: "stock"`；上市股票加 `twse: "代號"` 會自動補證交所估值歷史（第一次每檔約 13 分鐘）。
 
 ## 新增指標
 
@@ -118,4 +124,4 @@ FRED 和 multpl 會擋一般 Python HTTP client，所以用 `curl_cffi` 模擬�
 - `PERCENTILE_YEARS`：百分位比較的歷史長度（預設 30 年）
 - `MIN_MONTHS_FOR_PERCENTILE`：資料少於幾個月不算百分位（預設 12）
 - `KIND_WEIGHTS`：市場溫度中估值 / 技術指標的權重（預設 2 : 1）
-- `TARGETS`：要追蹤的指數與對應 ETF
+- `TARGETS`：要追蹤的指數 / 個股（`group` 決定在首頁或個股診斷頁）
