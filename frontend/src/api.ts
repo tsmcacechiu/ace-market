@@ -30,7 +30,7 @@ export type TargetSummary = {
   id: string;
   name: string;
   symbol: string;
-  etf: string;
+  etf: string | null;
   quote: { date: string; close: number; change_pct: number } | null;
   moving_averages: MovingAverage[];
   temperature: number | null;
@@ -49,14 +49,14 @@ export type Point = [string, number];
 
 export type MetricHistory = {
   metric: MetricDef;
-  target: { id: string; name: string; index: string; etf: string };
+  target: { id: string; name: string; index: string; etf: string | null };
   score: (MetricScore & { bands: Record<string, number> | null }) | null;
   points: Point[];
   price: Point[];
 };
 
 export type IndexChart = {
-  target: { id: string; name: string; index: string; etf: string };
+  target: { id: string; name: string; index: string; etf: string | null };
   interval: "daily" | "weekly";
   price: Point[];
   moving_averages: { window: number; points: Point[] }[];

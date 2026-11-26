@@ -243,6 +243,21 @@ table.metrics td {
   text-align: left;
   vertical-align: middle;
 }
+/* Many assets → many columns: scroll sideways inside the card, metric names pinned left. */
+.table-scroll {
+  overflow-x: auto;
+}
+table.metrics tbody th[scope="row"],
+table.metrics thead th:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--surface);
+  white-space: nowrap;
+}
+table.metrics thead th {
+  white-space: nowrap;
+}
 table.metrics thead th {
   font-size: 13px;
   font-weight: 500;
@@ -250,6 +265,7 @@ table.metrics thead th {
 }
 table.metrics td.cell a {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 10px;
   text-decoration: none;

@@ -40,7 +40,11 @@ export function DashboardPage() {
 
       <div className="cards">
         {data.targets.map((t) => (
-          <IndexCard key={t.id} target={t} />
+          <IndexCard
+            key={t.id}
+            target={t}
+            hasValuationMetrics={data.metrics.some((m) => m.kind === "valuation" && t.id in m.sources)}
+          />
         ))}
       </div>
 

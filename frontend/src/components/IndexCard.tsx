@@ -2,7 +2,13 @@ import { Link } from "react-router-dom";
 import type { TargetSummary } from "../api";
 import { formatNumber, formatPct, levelOf } from "../format";
 
-export function IndexCard({ target }: { target: TargetSummary }) {
+type Props = {
+  target: TargetSummary;
+  /** False for assets without earnings (gold, bitcoin): no valuation metric applies at all. */
+  hasValuationMetrics: boolean;
+};
+
+export function IndexCard({ target, hasValuationMetrics }: Props) {
   const { quote, temperature } = target;
   const movingAverages = target.moving_averages ?? []; // absent in responses from an older backend
   const lv = temperature !== null ? levelOf(temperature) : null;
@@ -85,7 +91,9 @@ export function IndexCard({ target }: { target: TargetSummary }) {
         </div>
         {temperature !== null && target.temperature_basis.valuation === 0 && (
           <div className="small secondary" style={{ marginTop: 6 }}>
-            ⚠️ 只根據技術指標：估值資料還在累積，目前反映的是漲跌位置，不是估值高低
+            {hasValuationMetrics
+              ? "⚠️ 只根據技術指標：估值資料還在累積，目前反映的是漲跌位置，不是估值高低"
+              : "ℹ️ 沒有盈餘，沒有估值指標：溫度只反映價格相對歷史的位置，不是估值高低"}
           </div>
         )}
       </div>

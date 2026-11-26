@@ -74,6 +74,8 @@ def _store_series(session: Session, source: str, series_id: str, s: pd.Series) -
 def update_etf_pe(session: Session, full: bool) -> str:
     parts = []
     for t in TARGETS.values():
+        if not t["etf"]:  # gold, bitcoin: no earnings
+            continue
         d, pe = yahoo.fetch_trailing_pe(t["etf"])
         _store_series(session, "yahoo_etf_pe", t["etf"], pd.Series([pe], index=[pd.Timestamp(d)]))
         parts.append(f"{t['etf']}={pe:.2f}@{d}")

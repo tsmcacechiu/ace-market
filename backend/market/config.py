@@ -20,13 +20,17 @@ CORS_ORIGINS = [
     if o.strip()
 ]
 
-# Indices we evaluate. `etf` is the proxy used for P/E (Yahoo has no P/E for indices).
+# Assets we evaluate. `index` is the Yahoo symbol whose closes we store.
+# `etf` is the proxy used for P/E (Yahoo has no P/E for indices); None for assets without
+# earnings (gold, bitcoin), which therefore get technical metrics only.
 # `market` decides which US-only metrics apply (e.g. ERP uses the US 10Y yield).
-TARGETS: dict[str, dict[str, str]] = {
+TARGETS: dict[str, dict[str, str | None]] = {
     "SPX": {"name": "S&P 500", "index": "^GSPC", "etf": "SPY", "market": "US"},
     "NDX": {"name": "Nasdaq 100", "index": "^NDX", "etf": "QQQ", "market": "US"},
     "SOX": {"name": "費城半導體", "index": "^SOX", "etf": "SOXX", "market": "US"},
     "TWII": {"name": "台灣加權", "index": "^TWII", "etf": "0050.TW", "market": "TW"},
+    "GOLD": {"name": "黃金", "index": "GC=F", "etf": None, "market": "GLOBAL"},  # COMEX futures, USD/oz
+    "BTC": {"name": "比特幣", "index": "BTC-USD", "etf": None, "market": "GLOBAL"},  # trades 7 days a week
 }
 BENCHMARK = "SPX"  # relative strength is measured against this target
 

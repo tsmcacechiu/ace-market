@@ -80,7 +80,10 @@ def _rel(store: DataStore, target: str) -> pd.Series:
 
 _ALL = list(TARGETS)
 _US = [t for t in _ALL if TARGETS[t]["market"] == "US"]
-_ETF_PE = {t: f"Yahoo {TARGETS[t]['etf']} trailing P/E（每日快照，自開始收集起累積）" for t in _ALL}
+# Only assets with an earnings proxy get P/E-based metrics.
+_ETF_PE = {
+    t: f"Yahoo {TARGETS[t]['etf']} trailing P/E（每日快照，自開始收集起累積）" for t in _ALL if TARGETS[t]["etf"]
+}
 
 METRICS: list[MetricDef] = [
     MetricDef(
@@ -124,7 +127,7 @@ METRICS: list[MetricDef] = [
         sources={
             t: f"{src.split('（')[0]} − FRED DGS10"
             for t, src in {**_ETF_PE, "SPX": "multpl S&P 500 P/E"}.items()
-            if t in _US
+            if t in _US and t in _ETF_PE
         },
         compute=_erp,
     ),
@@ -154,7 +157,7 @@ METRICS: list[MetricDef] = [
         unit="%",
         kind="technical",
         higher_is_expensive=True,
-        description="指數 ÷ S&P 500 的比值，高於自己 200 日均線多少 %。用來看科技股或半導體相對大盤是否過熱。",
+        description="價格 ÷ S&P 500 的比值，高於自己 200 日均線多少 %。用來看科技股、半導體、黃金或比特幣相對美股大盤是否過熱。",
         sources={t: f"Yahoo {TARGETS[t]['index']} ÷ ^GSPC" for t in _ALL if t != BENCHMARK},
         compute=_rel,
     ),
