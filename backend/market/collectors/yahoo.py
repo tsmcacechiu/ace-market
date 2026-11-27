@@ -4,13 +4,16 @@ import pandas as pd
 import yfinance as yf
 
 
-def fetch_history(symbol: str, start: date | None = None) -> pd.DataFrame:
-    """Daily OHLCV. Full history when `start` is None. Index is naive dates."""
+def fetch_history(symbol: str, start: date | None = None, adjusted: bool = False) -> pd.DataFrame:
+    """Daily OHLCV. Full history when `start` is None. Index is naive dates.
+
+    `adjusted=False`: split-adjusted only. `adjusted=True`: also adjusted for dividends.
+    """
     ticker = yf.Ticker(symbol)
     if start is None:
-        df = ticker.history(period="max", interval="1d", auto_adjust=False)
+        df = ticker.history(period="max", interval="1d", auto_adjust=adjusted)
     else:
-        df = ticker.history(start=start.isoformat(), interval="1d", auto_adjust=False)
+        df = ticker.history(start=start.isoformat(), interval="1d", auto_adjust=adjusted)
     if df.empty:
         raise RuntimeError(f"Yahoo returned no price data for {symbol}")
     df.index = pd.DatetimeIndex(df.index.tz_localize(None).normalize())

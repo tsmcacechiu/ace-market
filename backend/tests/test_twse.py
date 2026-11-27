@@ -44,3 +44,27 @@ def test_months_between():
     assert twse.months_between(pd.Timestamp("2025-11-15"), pd.Timestamp("2026-02-03")) == [
         (2025, 11), (2025, 12), (2026, 1), (2026, 2)
     ]
+
+
+def test_get_json_retries_transient_failures(monkeypatch):
+    calls = []
+
+    def flaky(url):
+        calls.append(url)
+        if len(calls) < 3:
+            raise TimeoutError("stalled")
+        return '{"stat": "OK"}'
+
+    monkeypatch.setattr(twse, "get_text", flaky)
+    monkeypatch.setattr(twse, "RETRY_WAITS", (0.0, 0.0, 0.0))
+    monkeypatch.setattr(twse, "MIN_INTERVAL", 0.0)
+    assert twse._get_json("u") == {"stat": "OK"}
+    assert len(calls) == 3
+
+
+def test_get_json_gives_up_after_the_last_retry(monkeypatch):
+    monkeypatch.setattr(twse, "get_text", lambda url: (_ for _ in ()).throw(TimeoutError("stalled")))
+    monkeypatch.setattr(twse, "RETRY_WAITS", (0.0,))
+    monkeypatch.setattr(twse, "MIN_INTERVAL", 0.0)
+    with pytest.raises(TimeoutError):
+        twse._get_json("u")

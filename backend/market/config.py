@@ -41,6 +41,17 @@ TARGETS: dict[str, dict[str, str | None]] = {
     "2454": {"name": "聯發科", "index": "2454.TW", "etf": None, "twse": "2454", "market": "TW", "group": "stock"},
 }
 GROUPS = ("market", "stock")
+
+# 個股 prices come from TWSE (adjusted for dividends and splits, see market/tw_prices.py), not
+# Yahoo, whose split / stock-dividend adjustments are wrong for them. Yahoo symbol -> TWSE code.
+TWSE_PRICES = {
+    t["index"]: t["index"].removesuffix(".TW")
+    for t in TARGETS.values()
+    if t.get("group") == "stock" and t["index"].endswith(".TW")
+}
+# Splits are not in TWSE's ex-rights table: TWSE code -> [(first trading day after it, ratio)].
+# The build fails if TWSE marks a re-based price ("**") on a day not listed here.
+TW_SPLITS: dict[str, list[tuple[str, float]]] = {"0050": [("2025-06-18", 4.0)]}
 BENCHMARK = "SPX"  # relative strength on the home page is measured against this target
 STOCK_BENCHMARK = "TWII"  # ... and on the 個股診斷 page against this one
 

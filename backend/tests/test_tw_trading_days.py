@@ -30,6 +30,7 @@ def test_update_prices_drops_tw_holidays_and_cleans_stored_ones(tmp_path, monkey
     init_db(eng)
     monkeypatch.setattr(daily, "TARGETS", {"X": {"index": "2330.TW"}, "Y": {"index": "^TWII"}})
     monkeypatch.setattr(daily, "EXTRA_PRICE_SYMBOLS", [])
+    monkeypatch.setattr(daily, "TWSE_PRICES", {})  # test the Yahoo path for a TW-listed symbol
     fetched = {
         "2330.TW": _ohlcv([("2026-10-22", 2400.0, 3e7), ("2026-10-23", 2400.0, 0.0), ("2026-10-26", 2390.0, 2e7)]),
         # Indices report no volume at all: zero volume must NOT be read as "closed" here.
