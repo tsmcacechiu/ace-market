@@ -3,6 +3,8 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
 import { api, BOARDS } from "../api";
 import { IndexChart } from "../components/IndexChart";
+import { PositionPlanner } from "../components/PositionPlanner";
+import { StrategyPanel } from "../components/StrategyPanel";
 import { formatNumber, formatPct } from "../format";
 
 const RANGES = [
@@ -31,6 +33,13 @@ export function IndexDetailPage() {
     queryKey: ["indexChart", target, from],
     queryFn: () => api.indexChart(target, from),
     placeholderData: keepPreviousData,
+  });
+
+  const strategy = useQuery({
+    queryKey: ["strategy1", target, from],
+    queryFn: () => api.strategy1(target, from),
+    placeholderData: keepPreviousData,
+    retry: 1, // an older backend has no /api/strategy: just hide the overlay and panel
   });
 
   const last = data?.price[data.price.length - 1];
@@ -102,11 +111,16 @@ export function IndexDetailPage() {
                 price={data.price}
                 movingAverages={data.moving_averages}
                 logScale={logScale}
+                segments={strategy.data?.segments}
+                markers={strategy.data?.markers}
               />
             ) : (
               <div className="muted">這個時間範圍內沒有資料</div>
             )}
           </section>
+
+          {strategy.data?.regime && <PositionPlanner target={target} regime={strategy.data.regime} />}
+          {strategy.data && <StrategyPanel data={strategy.data} />}
         </>
       )}
     </div>

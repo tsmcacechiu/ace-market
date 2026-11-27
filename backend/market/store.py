@@ -24,6 +24,12 @@ class DataStore:
         ).all()
         return _to_series(rows, symbol)
 
+    def open(self, symbol: str) -> pd.Series:
+        rows = self.session.execute(
+            select(Price.date, Price.open).where(Price.symbol == symbol, Price.open.is_not(None))
+        ).all()
+        return _to_series(rows, symbol)
+
     def observations(self, source: str, series_id: str) -> pd.Series:
         rows = self.session.execute(
             select(Observation.date, Observation.value).where(

@@ -14,10 +14,22 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from market.config import CORS_ORIGINS, GROUPS, MA_WINDOWS, MIN_MONTHS_FOR_PERCENTILE, PERCENTILE_YEARS, SCHEDULE_ENABLED, TARGETS
+from market.config import (
+    CORS_ORIGINS,
+    GROUPS,
+    MA_WINDOWS,
+    MIN_MONTHS_FOR_PERCENTILE,
+    PERCENTILE_YEARS,
+    SCHEDULE_ENABLED,
+    STRATEGY_1,
+    STRATEGY_1_INDEX_GROUP,
+    TARGETS,
+)
 from market.db import SessionLocal, init_db
 from market.jobs import daily, scheduler
 from market.metrics import METRICS, METRICS_BY_ID
+from market.metrics import strategy
+from market.metrics.strategy_alerts import alerts as strategy_alerts
 from market.metrics.scoring import expensiveness, score, temperature
 from market.models import JobRun
 from market.store import DataStore
@@ -139,6 +151,7 @@ def _warm_dashboard() -> None:
         with SessionLocal() as session:
             for group in GROUPS:
                 cached_dashboard(DataStore(session), group)
+            cached_strategy(DataStore(session))
         log.info("dashboard cache warmed")
     except Exception:
         log.exception("dashboard cache warm-up failed")
@@ -158,6 +171,7 @@ def stocks(store: DataStore = Depends(get_store)) -> dict:
 
 def _build_dashboard(store: DataStore, job: JobRun | None, group: str = "market") -> dict:
     group_targets = {tid: t for tid, t in TARGETS.items() if t.get("group", "market") == group}
+    bt = _backtest_or_none(store)
     targets = []
     for tid, t in group_targets.items():
         close = store.close(t["index"]).dropna()
@@ -188,6 +202,14 @@ def _build_dashboard(store: DataStore, job: JobRun | None, group: str = "market"
                 "history_months": sc.history_months,
             }
 
+        params = strategy.Params.for_target(tid)
+        regime = None
+        if len(close):
+            frame = strategy.ma_regime(close, params)
+            regime = strategy.latest_regime(frame, params)
+            if regime is not None:
+                regime["alerts"] = strategy_alerts(frame, params, _alert_stats(bt, tid), STRATEGY_1["MIN_SAMPLES"])
+
         targets.append(
             {
                 "id": tid,
@@ -203,6 +225,7 @@ def _build_dashboard(store: DataStore, job: JobRun | None, group: str = "market"
                     for kind in ("valuation", "technical")
                 },
                 "metrics": metrics,
+                "regime": regime,
             }
         )
 
@@ -300,3 +323,153 @@ def prices(
     if start:
         close = close[close.index >= pd.Timestamp(start)]
     return _points(close)
+
+
+# --- 策略一 (plan/strategy-1/SKILL.md) -------------------------------------------------------
+# The backtest needs every target's full history (group stats pool them), so it is built once
+# per finished job, like the dashboards.
+_strategy_lock = threading.Lock()
+_strategy_cache: dict = {}
+STRATEGY_DISCLAIMER = "依歷史均線規則推算，不構成投資建議"
+
+
+def _strategy_group(tid: str) -> str:
+    return "指數" if tid in STRATEGY_1_INDEX_GROUP else "其他"
+
+
+def cached_strategy(store: DataStore) -> dict:
+    with _strategy_lock:
+        key = _job_key(_latest_job(store.session))
+        if _strategy_cache.get("key", object()) != key or "data" not in _strategy_cache:
+            _strategy_cache.update(key=key, data=_build_strategy(store))
+        return _strategy_cache["data"]
+
+
+def _build_strategy(store: DataStore) -> dict:
+    per: dict[str, dict] = {}
+    for tid, t in TARGETS.items():
+        close = store.close(t["index"]).dropna()
+        params = strategy.Params.for_target(tid)
+        rg = strategy.run_regime(close, params)
+        events = strategy.forward_returns(close, strategy.regime_events(rg.frame))
+        opens = strategy.clean_opens(rg.frame["close"], store.open(t["index"]), tid)
+        trades = strategy.swing_trades(rg.frame, strategy.event_trades(rg.frame, params), opens)
+        per[tid] = {"params": params, "regime": rg, "events": events, "trades": trades}
+
+    groups: dict[str, dict] = {}
+    for g in ("指數", "其他"):
+        members = [tid for tid in per if _strategy_group(tid) == g]
+        ev = pd.concat([per[tid]["events"] for tid in members]) if members else pd.DataFrame()
+        tr = pd.concat([per[tid]["trades"] for tid in members]) if members else pd.DataFrame()
+        groups[g] = {
+            "members": members,
+            "events": strategy.event_stats(ev) if len(ev) else None,
+            "trades": strategy.trade_stats(tr) if len(tr) else None,
+        }
+    return {"targets": per, "groups": groups}
+
+
+def _regime_with_alerts(frame: pd.DataFrame, params, bundle: dict | None, tid: str) -> dict | None:
+    regime = strategy.latest_regime(frame, params)
+    if regime is not None:
+        regime["alerts"] = strategy_alerts(frame, params, _alert_stats(bundle, tid), STRATEGY_1["MIN_SAMPLES"])
+    return regime
+
+
+def _backtest_or_none(store: DataStore) -> dict | None:
+    """The strategy bundle for alert history lines; alerts still work without it."""
+    try:
+        return cached_strategy(store)
+    except Exception:
+        log.exception("strategy backtest unavailable; alerts without history")
+        return None
+
+
+def _alert_stats(bundle: dict | None, tid: str) -> dict | None:
+    if bundle is None or tid not in bundle["targets"]:
+        return None
+    group = _strategy_group(tid)
+    return {
+        "target": strategy.event_stats(bundle["targets"][tid]["events"]),
+        "group": bundle["groups"][group]["events"],
+        "group_name": group,
+    }
+
+
+def _iso(ts) -> str | None:
+    return None if ts is None or pd.isna(ts) else pd.Timestamp(ts).date().isoformat()
+
+
+@app.get("/api/strategy/1/{target}")
+def strategy_1(
+    target: str,
+    start: date | None = Query(None, alias="from"),
+    store: DataStore = Depends(get_store),
+) -> dict:
+    """策略一 for one target: today's state, state history (chart backgrounds), events with
+    forward returns, and backtest stats for the target and its group (指數 / 其他)."""
+    if target not in TARGETS:
+        raise HTTPException(404, f"Unknown target {target}")
+    bundle = cached_strategy(store)
+    d = bundle["targets"][target]
+    frame, params = d["regime"].frame, d["params"]
+    shown = frame if start is None else frame[frame.index >= pd.Timestamp(start)]
+    group = _strategy_group(target)
+
+    marks = shown[shown["event"].ne("") & shown["event"].notna()]
+    events = d["events"]
+    trades = d["trades"]
+    horizons = [f"{m}m" for m in strategy.HORIZONS_MONTHS]
+    return {
+        "target": {"id": target, "name": TARGETS[target]["name"], "group": group,
+                   "is_stock": TARGETS[target].get("group") == "stock"},
+        "params": {
+            "window": params.window,
+            "break_confirm": params.break_confirm,
+            "reclaim_confirm": params.reclaim_confirm,
+            "exit_confirm": params.exit_confirm,
+            "touch_band_pct": params.touch_band_pct,
+            "exit_200": [list(x) for x in params.exit_200],
+            "exit_500": [list(x) for x in params.exit_500],
+            "min_samples": STRATEGY_1["MIN_SAMPLES"],
+            "horizons": horizons,
+        },
+        "states": {k: {"label": v[0], "color": v[1], "position": v[2]} for k, v in strategy.STATES.items()},
+        "regime": _regime_with_alerts(frame, params, bundle, target),
+        "segments": strategy.state_segments(shown),
+        "markers": [[_iso(ts), r["event"], round(float(r["close"]), 4)] for ts, r in marks.iterrows()],
+        "events": [
+            {
+                "date": _iso(ts),
+                "kind": r["kind"],
+                "close": round(float(r["close"]), 4),
+                "first_500": None if pd.isna(r["first_500"]) else bool(r["first_500"]),
+                "returns": {h: strategy.rounded(r[f"ret_{h}"]) for h in horizons},
+            }
+            for ts, r in events.iloc[::-1].iterrows()
+        ],
+        "stats": {
+            "target": strategy.event_stats(events),
+            "group": bundle["groups"][group]["events"],
+            "group_name": group,
+            "group_members": bundle["groups"][group]["members"],
+        },
+        "trades": {
+            "target": strategy.trade_stats(trades),
+            "group": bundle["groups"][group]["trades"],
+            "fill": "next_open",
+            "list": [
+                {
+                    "kind": r["kind"],
+                    "entry_date": _iso(r["entry_date"]),
+                    "entry_price": round(float(r["entry_price"]), 4),
+                    "exit_date": _iso(r["exit_date"]),
+                    "ret": strategy.rounded(r["ret"]),
+                    "days": int(r["days"]),
+                    "open": bool(r["open"]),
+                }
+                for _, r in trades.iloc[::-1].iterrows()
+            ],
+        },
+        "disclaimer": STRATEGY_DISCLAIMER,
+    }

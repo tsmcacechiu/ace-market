@@ -88,3 +88,21 @@ PRICE_OVERLAP_DAYS = 7
 SCHEDULE_ENABLED = os.environ.get("SCHEDULE_ENABLED", "1").lower() not in ("0", "false", "no")
 SCHEDULE_TIME = os.environ.get("SCHEDULE_TIME", "06:30")  # HH:MM
 SCHEDULE_TZ = os.environ.get("SCHEDULE_TZ", "Asia/Taipei")
+
+# 策略一：200 / 500 日線多空判讀＋分層倉位 (plan/strategy-1/SKILL.md §2). Applies to every TARGET.
+# Day counts are trading days (rows), so BTC's 30 days = 30 calendar days.
+STRATEGY_1 = {
+    "BREAK_CONFIRM_DAYS": 3,  # closes below an MA in a row to count as a break
+    "RECLAIM_CONFIRM_DAYS": 3,  # closes above an MA in a row to count as a reclaim
+    "RECLAIM_WINDOW_DAYS": 21,  # observation window after a confirmed break
+    "TOUCH_BAND_PCT": 2.0,  # NEAR_500 when close <= MA500 × (1 + this / 100)
+    "EXIT_CONFIRM_DAYS": 3,  # closes below an exit MA in a row to sell
+    "EXIT_RECLAIM_500": [(500, 1.0)],  # (MA, share sold) for the swing sleeve entered on RECLAIM_500
+    "EXIT_RECLAIM_200": [(50, 0.5), (200, 0.5)],  # ... and for one entered on RECLAIM_200
+    "RECLAIM_500_FIRST_ONLY": True,  # only the first RECLAIM_500 of an episode is an entry
+    "RECLAIM_HOLD_DAYS": 5,  # RECLAIM_200 / RECLAIM_500 stay the shown state this many days
+    "MIN_SAMPLES": 10,  # fewer events than this → "樣本不足", fall back to the group's stats
+}
+RECLAIM_WINDOW_DAYS_OVERRIDE = {"BTC": 30}
+# Backtest groups: indices are reported apart from gold, bitcoin and 個股.
+STRATEGY_1_INDEX_GROUP = ("SPX", "NDX", "SOX", "TWII")
