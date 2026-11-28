@@ -77,6 +77,8 @@ launchctl start com.market.daily               # 立刻跑一次測試
 | `VITE_API_BASE` | 前端（**build 時**） | 後端網址，例如 `https://market-api.onrender.com`。本機開發不用設，Vite 會把 `/api` 轉到 `127.0.0.1:8000` |
 | `CORS_ORIGINS` | 後端 | 允許呼叫 API 的前端網址，逗號分隔，例如 `https://market-web.onrender.com`。預設只允許 `localhost:5173` |
 | `DATABASE_URL` | 後端 | 同上方「資料庫」一節 |
+| `DISCORD_WEBHOOK_URL` | 後端 | 策略一的 Discord 推播（Webhook 網址，等同密碼，只放在 `.env` 和 Render）。沒設的話提示只記錄、不發送 |
+| `SITE_URL` | 後端 | 前端網址，Discord 提示的標題會連到該標的的頁面。`render.yaml` 已設為 `https://ace-market.vercel.app` |
 
 ### 後端部署到 Render
 

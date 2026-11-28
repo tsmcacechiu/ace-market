@@ -18,3 +18,7 @@ services:
         sync: false
       - key: TZ # job timestamps are server-local; keep them in the same zone as existing rows
         value: Asia/Taipei
+      - key: DISCORD_WEBHOOK_URL # 策略一 Discord 推播 (plan/strategy-1/SKILL.md §9.5); a secret, same as backend/.env
+        sync: false
+      - key: SITE_URL # frontend URL, so Discord alert titles link to the target's page
+        value: https://ace-market.vercel.app
