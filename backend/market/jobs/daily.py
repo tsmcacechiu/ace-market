@@ -19,7 +19,7 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from market.collectors import fred, multpl, twse, yahoo
-from market import tw_prices
+from market import notify, tw_prices
 from market.config import (
     EXTRA_PRICE_SYMBOLS,
     FRED_SERIES,
@@ -249,6 +249,10 @@ def compute_metrics(session: Session, full: bool) -> str:
     return " ".join(parts)
 
 
+def update_signals(session: Session, full: bool) -> str:
+    return notify.record_and_send(session)
+
+
 STEPS: list[tuple[str, Callable[[Session, bool], str]]] = [
     ("prices", update_prices),
     ("tw_prices", update_tw_prices),
@@ -256,7 +260,8 @@ STEPS: list[tuple[str, Callable[[Session, bool], str]]] = [
     ("fred", update_fred),
     ("multpl", update_multpl),
     ("twse", update_twse),
-    ("metrics", compute_metrics),  # last: uses whatever the steps above managed to store
+    ("metrics", compute_metrics),  # uses whatever the steps above managed to store
+    ("signals", update_signals),  # last: 策略一 alerts of the newest closes → table + Discord
 ]
 
 

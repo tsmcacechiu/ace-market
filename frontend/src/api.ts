@@ -131,6 +131,22 @@ export type TradeStat = {
 };
 export type TradeStats = Record<"RECLAIM_200" | "RECLAIM_500", TradeStat>;
 
+export type SignalLog = {
+  signals: {
+    target: string;
+    name: string;
+    date: string;
+    kind: string;
+    level: AlertLevel;
+    title: string;
+    price: number;
+    sent: boolean;
+    returns: Record<string, number | null>;
+    backtest: { win_pct_12m: number | null; median_12m: number | null; n: number; pooled: boolean; group: string } | null;
+  }[];
+  disclaimer: string;
+};
+
 export type StrategyDetail = {
   target: { id: string; name: string; group: "指數" | "其他"; is_stock: boolean };
   params: {
@@ -205,6 +221,7 @@ export const api = {
     get<MetricHistory>(`/api/metrics/${metricId}/${target}${from ? `?from=${from}` : ""}`),
   indexChart: (target: string, from?: string) =>
     get<IndexChart>(`/api/indices/${target}/chart${from ? `?from=${from}` : ""}`),
+  signals: (level: "action" | "all" = "action") => get<SignalLog>(`/api/strategy/signals?level=${level}`),
   strategy1: (target: string, from?: string) =>
     get<StrategyDetail>(`/api/strategy/1/${target}${from ? `?from=${from}` : ""}`),
 };

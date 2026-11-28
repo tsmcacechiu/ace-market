@@ -106,3 +106,9 @@ STRATEGY_1 = {
 RECLAIM_WINDOW_DAYS_OVERRIDE = {"BTC": 30}
 # Backtest groups: indices are reported apart from gold, bitcoin and 個股.
 STRATEGY_1_INDEX_GROUP = ("SPX", "NDX", "SOX", "TWII")
+
+# 策略一 push notifications (SKILL.md §9.5). Unset = alerts are still recorded, nothing is sent.
+# Discord: channel settings → Integrations → Webhooks → New Webhook → Copy Webhook URL.
+DISCORD_WEBHOOK_URL = os.environ.get("DISCORD_WEBHOOK_URL", "").strip()
+# Public frontend URL, for "open the page" links in notifications (e.g. https://market.vercel.app).
+SITE_URL = os.environ.get("SITE_URL", "").strip().rstrip("/")

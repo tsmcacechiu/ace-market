@@ -22,16 +22,15 @@ from market.config import (
     PERCENTILE_YEARS,
     SCHEDULE_ENABLED,
     STRATEGY_1,
-    STRATEGY_1_INDEX_GROUP,
     TARGETS,
 )
 from market.db import SessionLocal, init_db
 from market.jobs import daily, scheduler
 from market.metrics import METRICS, METRICS_BY_ID
 from market.metrics import strategy
-from market.metrics.strategy_alerts import alerts as strategy_alerts
 from market.metrics.scoring import expensiveness, score, temperature
-from market.models import JobRun
+from market import strategy_service
+from market.models import JobRun, StrategySignal
 from market.store import DataStore
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
@@ -205,10 +204,7 @@ def _build_dashboard(store: DataStore, job: JobRun | None, group: str = "market"
         params = strategy.Params.for_target(tid)
         regime = None
         if len(close):
-            frame = strategy.ma_regime(close, params)
-            regime = strategy.latest_regime(frame, params)
-            if regime is not None:
-                regime["alerts"] = strategy_alerts(frame, params, _alert_stats(bt, tid), STRATEGY_1["MIN_SAMPLES"])
+            regime = strategy_service.regime_with_alerts(strategy.ma_regime(close, params), params, bt, tid)
 
         targets.append(
             {
@@ -330,50 +326,14 @@ def prices(
 # per finished job, like the dashboards.
 _strategy_lock = threading.Lock()
 _strategy_cache: dict = {}
-STRATEGY_DISCLAIMER = "依歷史均線規則推算，不構成投資建議"
-
-
-def _strategy_group(tid: str) -> str:
-    return "指數" if tid in STRATEGY_1_INDEX_GROUP else "其他"
 
 
 def cached_strategy(store: DataStore) -> dict:
     with _strategy_lock:
         key = _job_key(_latest_job(store.session))
         if _strategy_cache.get("key", object()) != key or "data" not in _strategy_cache:
-            _strategy_cache.update(key=key, data=_build_strategy(store))
+            _strategy_cache.update(key=key, data=strategy_service.build_bundle(store))
         return _strategy_cache["data"]
-
-
-def _build_strategy(store: DataStore) -> dict:
-    per: dict[str, dict] = {}
-    for tid, t in TARGETS.items():
-        close = store.close(t["index"]).dropna()
-        params = strategy.Params.for_target(tid)
-        rg = strategy.run_regime(close, params)
-        events = strategy.forward_returns(close, strategy.regime_events(rg.frame))
-        opens = strategy.clean_opens(rg.frame["close"], store.open(t["index"]), tid)
-        trades = strategy.swing_trades(rg.frame, strategy.event_trades(rg.frame, params), opens)
-        per[tid] = {"params": params, "regime": rg, "events": events, "trades": trades}
-
-    groups: dict[str, dict] = {}
-    for g in ("指數", "其他"):
-        members = [tid for tid in per if _strategy_group(tid) == g]
-        ev = pd.concat([per[tid]["events"] for tid in members]) if members else pd.DataFrame()
-        tr = pd.concat([per[tid]["trades"] for tid in members]) if members else pd.DataFrame()
-        groups[g] = {
-            "members": members,
-            "events": strategy.event_stats(ev) if len(ev) else None,
-            "trades": strategy.trade_stats(tr) if len(tr) else None,
-        }
-    return {"targets": per, "groups": groups}
-
-
-def _regime_with_alerts(frame: pd.DataFrame, params, bundle: dict | None, tid: str) -> dict | None:
-    regime = strategy.latest_regime(frame, params)
-    if regime is not None:
-        regime["alerts"] = strategy_alerts(frame, params, _alert_stats(bundle, tid), STRATEGY_1["MIN_SAMPLES"])
-    return regime
 
 
 def _backtest_or_none(store: DataStore) -> dict | None:
@@ -383,17 +343,6 @@ def _backtest_or_none(store: DataStore) -> dict | None:
     except Exception:
         log.exception("strategy backtest unavailable; alerts without history")
         return None
-
-
-def _alert_stats(bundle: dict | None, tid: str) -> dict | None:
-    if bundle is None or tid not in bundle["targets"]:
-        return None
-    group = _strategy_group(tid)
-    return {
-        "target": strategy.event_stats(bundle["targets"][tid]["events"]),
-        "group": bundle["groups"][group]["events"],
-        "group_name": group,
-    }
 
 
 def _iso(ts) -> str | None:
@@ -414,7 +363,7 @@ def strategy_1(
     d = bundle["targets"][target]
     frame, params = d["regime"].frame, d["params"]
     shown = frame if start is None else frame[frame.index >= pd.Timestamp(start)]
-    group = _strategy_group(target)
+    group = strategy_service.group_of(target)
 
     marks = shown[shown["event"].ne("") & shown["event"].notna()]
     events = d["events"]
@@ -435,7 +384,7 @@ def strategy_1(
             "horizons": horizons,
         },
         "states": {k: {"label": v[0], "color": v[1], "position": v[2]} for k, v in strategy.STATES.items()},
-        "regime": _regime_with_alerts(frame, params, bundle, target),
+        "regime": strategy_service.regime_with_alerts(frame, params, bundle, target),
         "segments": strategy.state_segments(shown),
         "markers": [[_iso(ts), r["event"], round(float(r["close"]), 4)] for ts, r in marks.iterrows()],
         "events": [
@@ -471,5 +420,66 @@ def strategy_1(
                 for _, r in trades.iloc[::-1].iterrows()
             ],
         },
-        "disclaimer": STRATEGY_DISCLAIMER,
+        "disclaimer": strategy_service.DISCLAIMER,
     }
+
+
+# Alert kind -> the backtest event it corresponds to (for "回測怎麼說" next to real outcomes).
+_SIGNAL_EVENT = {
+    "ENTRY_200": "RECLAIM_200",
+    "ENTRY_500": "RECLAIM_500",
+    "NEAR_500": "NEAR_500",
+    "BEAR_200": "BEAR_200",
+    "CRISIS": "CRISIS",
+}
+
+
+@app.get("/api/strategy/signals")
+def strategy_signals(
+    level: str = Query("action", pattern="^(action|all)$"),
+    store: DataStore = Depends(get_store),
+) -> dict:
+    """訊號紀錄 (SKILL.md §9.6): alerts the daily job recorded, newest first, with what the price
+    did 1 / 3 / 6 / 12 months later (None until that much time has passed)."""
+    q = select(StrategySignal).order_by(StrategySignal.date.desc(), StrategySignal.target)
+    if level == "action":
+        q = q.where(StrategySignal.level == "action")
+    rows = store.session.scalars(q).all()
+    closes = {tid: store.close(TARGETS[tid]["index"]).dropna() for tid in {r.target for r in rows} if tid in TARGETS}
+    try:
+        bundle = cached_strategy(store)
+    except Exception:
+        log.exception("strategy backtest unavailable for the signal log")
+        bundle = None
+
+    out = []
+    for r in rows:
+        close = closes.get(r.target)
+        rets = {}
+        for m in strategy.HORIZONS_MONTHS:
+            j = None if close is None else close.index.searchsorted(pd.Timestamp(r.date) + pd.DateOffset(months=m))
+            rets[f"{m}m"] = None if j is None or j >= len(close) else round(float((close.iloc[j] / r.price - 1) * 100), 1)
+        ev = _SIGNAL_EVENT.get(r.kind)
+        stats = strategy_service.alert_stats(bundle, r.target) if ev else None
+        backtest = None
+        if stats:
+            own = stats["target"][ev]["horizons"]["12m"]
+            use = own if own["n"] >= STRATEGY_1["MIN_SAMPLES"] else (stats["group"] or {}).get(ev, {}).get("horizons", {}).get("12m")
+            if use and use["n"]:
+                backtest = {"win_pct_12m": use["win_pct"], "median_12m": use["median"], "n": use["n"],
+                            "pooled": use is not own, "group": stats["group_name"]}
+        out.append(
+            {
+                "target": r.target,
+                "name": TARGETS.get(r.target, {}).get("name", r.target),
+                "date": r.date.isoformat(),
+                "kind": r.kind,
+                "level": r.level,
+                "title": r.title,
+                "price": r.price,
+                "sent": r.sent_at is not None,
+                "returns": rets,
+                "backtest": backtest,
+            }
+        )
+    return {"signals": out, "disclaimer": strategy_service.DISCLAIMER}
