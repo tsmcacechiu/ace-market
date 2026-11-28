@@ -151,10 +151,10 @@ def record_and_send(
                 pending.append((tid, a, t["date"].isoformat(), row))
     session.flush()
 
-    if not pending:
-        return f"{total} alerts, nothing new"
     if not webhook:
         return f"{total} alerts, {len(pending)} new, not sent (DISCORD_WEBHOOK_URL unset)"
+    if not pending:
+        return f"{total} alerts, nothing new (Discord ready)"
     rows = {(tid, a["kind"]): row for tid, a, _, row in pending}
     sent = 0
     for payload, chunk in messages([(tid, a, day) for tid, a, day, _ in pending]):

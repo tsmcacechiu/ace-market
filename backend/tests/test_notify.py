@@ -48,7 +48,7 @@ def run(session, p: Prices, webhook="https://discord.example/webhook", day=1):
 
 def test_quiet_day_records_and_sends_nothing(session):
     summary, sent = run(session, Prices())
-    assert sent == [] and summary == "0 alerts, nothing new"
+    assert sent == [] and summary == "0 alerts, nothing new (Discord ready)"
     assert session.scalars(select(StrategySignal)).all() == []
 
 
@@ -91,6 +91,11 @@ def test_without_webhook_alerts_are_recorded_not_sent(session):
     assert sent == [] and "DISCORD_WEBHOOK_URL unset" in summary
     rows = session.scalars(select(StrategySignal)).all()
     assert rows and all(r.sent_at is None for r in rows)
+
+
+def test_job_log_says_when_webhook_is_unset_even_with_nothing_new(session):
+    summary, _ = run(session, Prices(), webhook="")
+    assert summary == "0 alerts, 0 new, not sent (DISCORD_WEBHOOK_URL unset)"
 
 
 def test_entry_alert_has_detail_lines_and_action_color(session):
