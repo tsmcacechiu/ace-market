@@ -131,7 +131,7 @@ def alerts(frame: pd.DataFrame, params: Params, stats: dict | None = None, min_s
             lines.append(("歷史", hist))
         add("soon", "NEAR_500", "接近 500 日線。底倉可以加到 40% 上限", lines)
     elif state == "CRISIS" and event != "CRISIS":
-        add("soon", "CRISIS_ONGOING", "系統性空頭持續中：只守底倉，不攤平，等站回 500 日線")
+        add("action", "CRISIS_ONGOING", "系統性空頭持續中：只守底倉，不攤平，等站回 500 日線")
 
     out.sort(key=lambda a: LEVEL_ORDER[a["level"]])
     return out

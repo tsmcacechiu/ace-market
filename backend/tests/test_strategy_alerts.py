@@ -73,7 +73,7 @@ def test_break_500_crisis_and_reclaim_500():
     p.below(500, 21)
     assert ("action", "CRISIS") in kinds(run(p))
     p.below(500)
-    assert ("soon", "CRISIS_ONGOING") in kinds(run(p))
+    assert ("action", "CRISIS_ONGOING") in kinds(run(p))
 
     p.above(500, 2)
     assert ("soon", "PENDING_RECLAIM_500") in kinds(run(p))
