@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import type { TargetSummary } from "../api";
 import { formatNumber, formatPct, levelOf } from "../format";
+import { confirmHint, RegimeBadge } from "./RegimeBadge";
 
 type Props = {
   target: TargetSummary;
@@ -30,6 +31,14 @@ export function IndexCard({ target, hasValuationMetrics }: Props) {
             </span>
             <span className="muted"> · {quote.date}</span>
           </div>
+          {target.regime && (
+            <div className="regime-line">
+              <RegimeBadge regime={target.regime} />
+              <div className="small secondary">
+                {confirmHint(target.regime) ?? `建議：${target.regime.suggested_position.text}`}
+              </div>
+            </div>
+          )}
           {movingAverages.length > 0 && (
             <table className="ma-table small" aria-label="移動平均線">
               <tbody>

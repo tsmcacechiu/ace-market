@@ -26,6 +26,16 @@
   --lv-4-bg: #e34948;
   --lv-4-fg: #ffffff;
 
+  /* 策略一 states: badge bg / fg, and a solid "band" color for chart backgrounds + legend. */
+  --st-bull-bg: #d3f0e3; --st-bull-fg: #0a5a3b; --st-bull-band: #1baf7a;
+  --st-reclaim200-bg: #1baf7a; --st-reclaim200-fg: #ffffff; --st-reclaim200-band: #0f8f5f;
+  --st-break200-bg: #fbefc4; --st-break200-fg: #634b00; --st-break200-band: #e0b400;
+  --st-bear200-bg: #fbdccd; --st-bear200-fg: #7a2e0d; --st-bear200-band: #eb6834;
+  --st-near500-bg: #d3e4f8; --st-near500-fg: #123f73; --st-near500-band: #2a78d6;
+  --st-break500-bg: #f8d3d2; --st-break500-fg: #7d1a1a; --st-break500-band: #e34948;
+  --st-crisis-bg: #8f1d1d; --st-crisis-fg: #ffffff; --st-crisis-band: #8f1d1d;
+  --st-reclaim500-bg: #2a78d6; --st-reclaim500-fg: #ffffff; --st-reclaim500-band: #1d5fae;
+
   color-scheme: light dark;
   font-family: -apple-system, BlinkMacSystemFont, "PingFang TC", "Noto Sans TC", "Segoe UI", sans-serif;
   color: var(--ink);
@@ -58,6 +68,15 @@
     --lv-3-fg: #f0efec;
     --lv-4-bg: #e66767;
     --lv-4-fg: #0b0b0b;
+
+    --st-bull-bg: #123d2c; --st-bull-fg: #9fe3c6; --st-bull-band: #199e70;
+    --st-reclaim200-bg: #199e70; --st-reclaim200-fg: #0b0b0b; --st-reclaim200-band: #2fc48d;
+    --st-break200-bg: #4a3c08; --st-break200-fg: #f3d873; --st-break200-band: #d1a800;
+    --st-bear200-bg: #552511; --st-bear200-fg: #f6b796; --st-bear200-band: #d95926;
+    --st-near500-bg: #1f3d63; --st-near500-fg: #b9d5f6; --st-near500-band: #3987e5;
+    --st-break500-bg: #5c1f1f; --st-break500-fg: #f5b3b3; --st-break500-band: #e66767;
+    --st-crisis-bg: #b22a2a; --st-crisis-fg: #ffffff; --st-crisis-band: #b22a2a;
+    --st-reclaim500-bg: #3987e5; --st-reclaim500-fg: #0b0b0b; --st-reclaim500-band: #6aa7f0;
   }
 }
 
@@ -474,4 +493,227 @@ pre.job {
   .site-nav-inner {
     padding: 0 12px;
   }
+}
+
+/* ---- 策略一 ---- */
+.st { min-width: 0; text-align: left; white-space: normal; }
+.st-bull { background: var(--st-bull-bg); color: var(--st-bull-fg); }
+.st-reclaim200 { background: var(--st-reclaim200-bg); color: var(--st-reclaim200-fg); }
+.st-break200 { background: var(--st-break200-bg); color: var(--st-break200-fg); }
+.st-bear200 { background: var(--st-bear200-bg); color: var(--st-bear200-fg); }
+.st-near500 { background: var(--st-near500-bg); color: var(--st-near500-fg); }
+.st-break500 { background: var(--st-break500-bg); color: var(--st-break500-fg); }
+.st-crisis { background: var(--st-crisis-bg); color: var(--st-crisis-fg); }
+.st-reclaim500 { background: var(--st-reclaim500-bg); color: var(--st-reclaim500-fg); }
+
+.regime-line {
+  margin-top: 10px;
+  display: grid;
+  gap: 4px;
+  justify-items: start;
+}
+
+.strategy h2 {
+  font-size: 16px;
+  margin: 0 0 10px;
+}
+.strategy h3 {
+  font-size: 14px;
+  margin: 18px 0 8px;
+  color: var(--ink-2);
+  font-weight: 600;
+}
+.strategy-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.strategy-head .badge {
+  font-size: 14px;
+  padding: 4px 10px;
+}
+.facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px 24px;
+}
+.facts dt {
+  font-size: 12px;
+  color: var(--ink-2);
+}
+.facts dd {
+  margin: 2px 0 0;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+table.bt {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+table.bt th,
+table.bt td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--grid);
+  text-align: right;
+  white-space: nowrap;
+}
+table.bt th:first-child,
+table.bt td:first-child {
+  text-align: left;
+  white-space: normal;
+  min-width: 8em; /* narrow screens: the table scrolls sideways instead of squeezing labels */
+}
+table.bt thead th {
+  font-weight: 500;
+  color: var(--ink-2);
+}
+.bt-sub {
+  display: block;
+  font-size: 11px;
+  color: var(--muted);
+}
+.state-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  font-size: 12px;
+  color: var(--ink-2);
+  margin-top: 8px;
+}
+.state-legend i {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  margin-right: 5px;
+  vertical-align: -1px;
+  opacity: 0.55;
+}
+.disclaimer {
+  margin-top: 14px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.strategy {
+  margin-top: 14px;
+}
+
+/* 策略一 alerts (今日待辦, strategy panel) */
+.today {
+  margin-bottom: 18px;
+}
+.today h2 {
+  font-size: 16px;
+  margin: 0 0 8px;
+}
+.today-row {
+  padding: 10px 0;
+  border-top: 1px solid var(--grid);
+}
+.today-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+.alerts {
+  list-style: none;
+  margin: 6px 0 12px;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.alert {
+  border-left: 3px solid var(--axis);
+  padding: 4px 0 4px 10px;
+  font-size: 14px;
+}
+.alert-action {
+  border-left-color: var(--critical);
+}
+.alert-soon {
+  border-left-color: var(--st-break200-band);
+}
+.alert-lines {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 2px 12px;
+  margin: 6px 0 0;
+  font-size: 13px;
+}
+.alert-lines div {
+  display: contents;
+}
+.alert-lines dt {
+  color: var(--ink-2);
+}
+.alert-lines dd {
+  margin: 0;
+}
+
+/* 倉位計算機 */
+.planner-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 10px 16px;
+  margin-bottom: 14px;
+}
+.field {
+  display: grid;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--ink-2);
+}
+.field input,
+.field select {
+  font: inherit;
+  font-size: 14px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--page);
+  color: var(--ink);
+}
+.planner-out {
+  margin-bottom: 8px;
+}
+.link-button {
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--muted);
+  text-decoration: underline;
+  cursor: pointer;
+  font: inherit;
+}
+
+/* 策略一總覽: text columns read left to right; only the numbers stay right-aligned. */
+table.bt.overview td:nth-child(2),
+table.bt.overview th:nth-child(2),
+table.bt.overview td:nth-child(5),
+table.bt.overview th:nth-child(5),
+table.bt.overview td:nth-child(6),
+table.bt.overview th:nth-child(6),
+table.bt.overview-events td:nth-child(2),
+table.bt.overview-events th:nth-child(2),
+table.bt.overview-events td:nth-child(3),
+table.bt.overview-events th:nth-child(3) {
+  text-align: left;
+}
+table.bt.overview td:nth-child(6) {
+  white-space: normal;
+  min-width: 16em;
+}
+table.bt.overview-events td:first-child {
+  min-width: 0;
+  white-space: nowrap;
+}
+table.bt.overview td:nth-child(2) {
+  min-width: 12em; /* keep the state badge readable; the table scrolls sideways instead */
 }

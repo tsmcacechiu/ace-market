@@ -47,3 +47,22 @@ class JobRun(Base):
     finished_at: Mapped[datetime | None] = mapped_column(DateTime)
     status: Mapped[str] = mapped_column(String)  # running | ok | partial | failed
     detail: Mapped[str | None] = mapped_column(Text)
+
+
+class StrategySignal(Base):
+    """策略一 🔴 / 🟡 alerts as the daily job saw them (SKILL.md §9.5–9.6).
+
+    One row per target, trading day and alert kind. `sent_at` is set once the alert went out to
+    Discord, so a re-run of the job on the same day never sends it twice.
+    """
+
+    __tablename__ = "strategy_signals"
+    target: Mapped[str] = mapped_column(String, primary_key=True)
+    date: Mapped[date] = mapped_column(Date, primary_key=True)
+    kind: Mapped[str] = mapped_column(String, primary_key=True)
+    level: Mapped[str] = mapped_column(String)  # action | soon
+    key: Mapped[str] = mapped_column(String)  # changes only when the level or day count changes
+    price: Mapped[float] = mapped_column(Float)  # close on `date`
+    title: Mapped[str] = mapped_column(Text)
+    lines: Mapped[str | None] = mapped_column(Text)  # JSON [[label, text], ...]
+    sent_at: Mapped[datetime | None] = mapped_column(DateTime)

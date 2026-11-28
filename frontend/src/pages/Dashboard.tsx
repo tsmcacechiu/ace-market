@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { api, type Group } from "../api";
 import { IndexCard } from "../components/IndexCard";
 import { MetricTable } from "../components/MetricTable";
+import { TodayPanel } from "../components/TodayPanel";
 import { formatDateTime } from "../format";
 
 const STATUS_TEXT = { ok: "✅ 正常", partial: "⚠️ 部分失敗", failed: "❌ 失敗", running: "⏳ 執行中" } as const;
@@ -44,6 +45,8 @@ export function DashboardPage({ group = "market" }: { group?: Group }) {
           )}
         </div>
       </header>
+
+      <TodayPanel targets={data.targets} />
 
       <div className="cards">
         {data.targets.map((t) => (
