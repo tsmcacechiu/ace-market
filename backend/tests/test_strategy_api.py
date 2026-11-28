@@ -46,3 +46,27 @@ def test_strategy_endpoint(monkeypatch):
     assert r["stats"]["group"]["RECLAIM_200"]["count"] == 5  # every 其他 target sees the same fake series
     assert r["trades"]["list"][0]["kind"] == "RECLAIM_200"
     assert r["disclaimer"]
+
+
+def test_strategy_overview(monkeypatch):
+    up = list(100 * 1.001 ** np.arange(600))
+    c = pd.Series(up + [up[-1] * 0.88] * 40, index=pd.bdate_range("2000-01-03", periods=640))
+    monkeypatch.setattr(main, "_latest_job", lambda session: SimpleNamespace(id=1, status="ok", finished_at="t"))
+    monkeypatch.setattr(main, "_strategy_cache", {})
+    main.app.dependency_overrides[main.get_store] = lambda: FakeStore(c)
+    try:
+        r = TestClient(main.app).get("/api/strategy/overview").json()
+    finally:
+        main.app.dependency_overrides.clear()
+
+    assert r["days"] == 90
+    assert {t["id"] for t in r["targets"]} == set(main.TARGETS)
+    spx = next(t for t in r["targets"] if t["id"] == "SPX")
+    assert spx["group"] == "market" and spx["regime"]["state"] == "BEAR_200"
+    assert "alerts" in spx["regime"]
+    kinds = [(e["kind"], e["target"]) for e in r["events"] if e["target"] in ("SPX", "BTC")]
+    assert ("BREAK_200", "SPX") in kinds and ("BEAR_200", "SPX") in kinds
+    assert ("BEAR_200", "BTC") in kinds  # 30-day window still inside the 40 days shown
+    dates = [e["date"] for e in r["events"]]
+    assert dates == sorted(dates, reverse=True)
+    assert all(e["label"] for e in r["events"])

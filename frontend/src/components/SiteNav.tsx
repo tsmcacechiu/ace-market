@@ -11,6 +11,9 @@ export function SiteNav() {
             {b.title}
           </NavLink>
         ))}
+        <NavLink to="/strategy" className="site-nav-link">
+          策略總覽
+        </NavLink>
         <NavLink to="/signals" className="site-nav-link">
           訊號紀錄
         </NavLink>

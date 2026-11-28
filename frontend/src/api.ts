@@ -131,6 +131,13 @@ export type TradeStat = {
 };
 export type TradeStats = Record<"RECLAIM_200" | "RECLAIM_500", TradeStat>;
 
+export type StrategyOverview = {
+  days: number;
+  targets: { id: string; name: string; group: "market" | "stock"; regime: Regime | null }[];
+  events: { date: string; target: string; name: string; kind: string; label: string; close: number; state: RegimeState | null }[];
+  disclaimer: string;
+};
+
 export type SignalLog = {
   signals: {
     target: string;
@@ -221,6 +228,7 @@ export const api = {
     get<MetricHistory>(`/api/metrics/${metricId}/${target}${from ? `?from=${from}` : ""}`),
   indexChart: (target: string, from?: string) =>
     get<IndexChart>(`/api/indices/${target}/chart${from ? `?from=${from}` : ""}`),
+  strategyOverview: () => get<StrategyOverview>("/api/strategy/overview"),
   signals: (level: "action" | "all" = "action") => get<SignalLog>(`/api/strategy/signals?level=${level}`),
   strategy1: (target: string, from?: string) =>
     get<StrategyDetail>(`/api/strategy/1/${target}${from ? `?from=${from}` : ""}`),

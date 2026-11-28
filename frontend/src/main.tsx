@@ -7,6 +7,7 @@ import { DashboardPage } from "./pages/Dashboard";
 import { IndexDetailPage } from "./pages/IndexDetail";
 import { MetricDetailPage } from "./pages/MetricDetail";
 import { SignalsPage } from "./pages/Signals";
+import { StrategyOverviewPage } from "./pages/StrategyOverview";
 import "./index.css";
 
 const queryClient = new QueryClient({
@@ -23,6 +24,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
           <Route path="/stocks" element={<DashboardPage group="stock" />} />
           <Route path="/index/:target" element={<IndexDetailPage />} />
           <Route path="/metric/:metricId/:target" element={<MetricDetailPage />} />
+          <Route path="/strategy" element={<StrategyOverviewPage />} />
           <Route path="/signals" element={<SignalsPage />} />
         </Routes>
       </BrowserRouter>

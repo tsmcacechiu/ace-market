@@ -424,6 +424,66 @@ def strategy_1(
     }
 
 
+OVERVIEW_DAYS = 90
+
+# Day events shown on the overview (state changes, plus the virtual swing sleeve's exits).
+EVENT_LABEL = {
+    "BREAK_200": "跌破 200 日線",
+    "RECLAIM_200": "站回 200 日線",
+    "BEAR_200": "一個月沒站回 200 日線",
+    "NEAR_500": "靠近 500 日線",
+    "BREAK_500": "跌破 500 日線",
+    "RECLAIM_500": "站回 500 日線",
+    "CRISIS": "一個月沒站回 500 日線",
+    "EXIT_50": "波段倉：跌破 50 日線賣一半",
+    "EXIT_200": "波段倉：跌破 200 日線出場",
+    "EXIT_50+EXIT_200": "波段倉：跌破 50 和 200 日線全部出場",
+    "EXIT_500": "波段倉：跌破 500 日線出場",
+}
+
+
+@app.get("/api/strategy/overview")
+def strategy_overview(store: DataStore = Depends(get_store)) -> dict:
+    """策略一總覽 (SKILL.md §5.4): every target's state today, and every event of the last
+    OVERVIEW_DAYS calendar days, newest first."""
+    bundle = cached_strategy(store)
+    targets, events = [], []
+    for tid, d in bundle["targets"].items():
+        frame, params = d["regime"].frame, d["params"]
+        targets.append(
+            {
+                "id": tid,
+                "name": TARGETS[tid]["name"],
+                "group": TARGETS[tid].get("group", "market"),
+                "regime": strategy_service.regime_with_alerts(frame, params, bundle, tid),
+            }
+        )
+        if frame.empty:
+            continue
+        recent = frame[frame.index >= frame.index[-1] - pd.Timedelta(days=OVERVIEW_DAYS)]
+        for ts, r in recent.iterrows():
+            for col in ("event", "exit_event"):
+                kind = r.get(col)
+                if isinstance(kind, str) and kind in EVENT_LABEL:
+                    if kind == "RECLAIM_500" and r.get("first_500") is False:
+                        label = "站回 500 日線（這一波不是第一次）"
+                    else:
+                        label = EVENT_LABEL[kind]
+                    events.append(
+                        {
+                            "date": _iso(ts),
+                            "target": tid,
+                            "name": TARGETS[tid]["name"],
+                            "kind": kind,
+                            "label": label,
+                            "close": round(float(r["close"]), 4),
+                            "state": r["state"] if isinstance(r["state"], str) else None,
+                        }
+                    )
+    events.sort(key=lambda e: (e["date"], e["target"]), reverse=True)
+    return {"days": OVERVIEW_DAYS, "targets": targets, "events": events, "disclaimer": strategy_service.DISCLAIMER}
+
+
 # Alert kind -> the backtest event it corresponds to (for "回測怎麼說" next to real outcomes).
 _SIGNAL_EVENT = {
     "ENTRY_200": "RECLAIM_200",

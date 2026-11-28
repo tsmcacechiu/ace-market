@@ -692,3 +692,28 @@ table.bt thead th {
   cursor: pointer;
   font: inherit;
 }
+
+/* 策略一總覽: text columns read left to right; only the numbers stay right-aligned. */
+table.bt.overview td:nth-child(2),
+table.bt.overview th:nth-child(2),
+table.bt.overview td:nth-child(5),
+table.bt.overview th:nth-child(5),
+table.bt.overview td:nth-child(6),
+table.bt.overview th:nth-child(6),
+table.bt.overview-events td:nth-child(2),
+table.bt.overview-events th:nth-child(2),
+table.bt.overview-events td:nth-child(3),
+table.bt.overview-events th:nth-child(3) {
+  text-align: left;
+}
+table.bt.overview td:nth-child(6) {
+  white-space: normal;
+  min-width: 16em;
+}
+table.bt.overview-events td:first-child {
+  min-width: 0;
+  white-space: nowrap;
+}
+table.bt.overview td:nth-child(2) {
+  min-width: 12em; /* keep the state badge readable; the table scrolls sideways instead */
+}
